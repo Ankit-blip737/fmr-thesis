@@ -58,5 +58,9 @@ Each entry: what's blocked · exactly what is needed · what happens once provid
 
 - **[2026-07-03] `HF_TOKEN` fully resolved** — token set as Windows user env var; MedGemma license accepted on HuggingFace. All three models unblocked. For Colab: add as secret `HF_TOKEN`.
 
-- **[2026-07-03] `GH_TOKEN` / `GITHUB_TOKEN` resolved** — GitHub fine-grained PAT (repo `fmr-thesis`, `contents: read+write`) set as Windows user env vars under both names. For Colab: add as secret `GH_TOKEN` (Instance A notebooks) and `GITHUB_TOKEN` (Instance B notebooks).
+- **[2026-07-03] `GH_TOKEN` / `GITHUB_TOKEN` resolved** — GitHub fine-grained PAT set as Windows user env vars. For Colab: add as secrets `GH_TOKEN` and `GITHUB_TOKEN`.
+
+- **[2026-07-03] `hf_vlm.py` Colab crash fixed** — `huggingface_hub>=0.34` strict dataclass validation rejects `use_cache=None` in Qwen2-VL/MedGemma configs with `StrictDataclassFieldValidationError`. Fixed by adding `_patch_config_for_strict_hub()` in `HFVLM._ensure_loaded()` (coerces `None→True` for bool config fields before the validator fires). Same fix applied to Instance A's `hf_vlm.py`. Both pushed. Notebooks clone the fixed master/instance-b so they will no longer crash on this error.
+
+- **[2026-07-03] `colab_judge_llm.ipynb` ran — real results in:** LLM judge (Qwen2.5-7B-Instruct) vs gold on N=44: accuracy=0.864, binary accuracy=0.955, Cohen’s κ=0.758 (substantial agreement). LLM-vs-heuristic identical (κ=0.758), confirming the heuristic judge is a faithful proxy for real LLM scoring. Result: `fmr/results/judge_llm_validation.json` pushed to `instance-b`.
 
