@@ -150,6 +150,22 @@ entry; append corrections as new entries.
   `git show master:...` this session, but treating that as unconfirmed per the
   instruction — flagging, not wiring.)
 
+- **[B] 2026-07-03 — Real-model correction finding + notebook v2 rectifications.**
+  First real run (Qwen2.5-VL-3B, VQA-RAD yes/no) showed default correction slightly
+  *hurt* accuracy (0.625→0.575): the classic VCD failure where a *correct* language
+  prior gets suppressed on binary questions. **Decision:** do NOT change the committed
+  `CorrectionConfig.vcd_margin=0.25` default (mock tests + the mock ablation story
+  depend on it, and it's the right value on clean signals). Instead, real-model runs
+  sweep `vcd_margin` and pick the safe operating point (notebook v2), and the thesis
+  reports the *trade-off curve* per the proposal's risk table — not a single point.
+  For real-model *inference* elsewhere, prefer `vcd_margin≈1.0` (conservative).
+  Also: (a) second-model check switched from gated MedGemma to ungated
+  `Qwen/Qwen2-VL-2B-Instruct`; (b) LoRA distill-target selection switched from the
+  absolute `keep_threshold=0.5` (mock-scale) to a **data-driven median of `fs_after`**
+  because real fs≈0.26 would select zero targets — the committed
+  `build_self_distillation_set` (absolute bar) is unchanged and still used for the
+  CPU-tested mock path; the notebook does the relative selection inline for real data.
+
 - **[B] 2026-07-03 — Correction component ablation adds an injectable `supports`
   vector to `verify_and_revise`.** Backward-compatible (defaults to clue-support
   when `supports=None`), so the committed pipeline and all tests are unchanged. It

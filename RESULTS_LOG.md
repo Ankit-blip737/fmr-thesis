@@ -276,3 +276,57 @@ no-trace single-chain self-consistency baseline). 400 synthetic samples.
 **Verification:** `verify_and_revise` `supports`-injection unit test added; full
 suite **57 passed** (3.76s). Artifact: `fmr/results/correction_ablation.json`.
 
+### [B] 2026-07-03 — REAL-MODEL Colab runs: results + rectifications
+
+The user ran the three GPU notebooks. Outcomes and fixes:
+
+**1. LLM-judge independent validation — ✅ SUCCESS.**
+`colab_judge_llm.ipynb` scored the N=44 gold set with an independent open LLM
+(Qwen2.5-7B-Instruct): **3-way accuracy 0.864, binary (correct-vs-not) 0.955,
+Cohen's κ = 0.758**, all 44 verdicts from the LLM (0 fallbacks). This is the
+external check the plan required: κ=0.758 is "substantial" agreement (>0.6), so the
+judge is trustworthy for Stage-6 open-ended scoring. It also re-frames the
+heuristic's κ=1.0 correctly — the heuristic was *tuned* to the gold set (upper
+bound); an *independent* LLM lands at 0.758, which is the honest field-level number
+to report. Artifact: `fmr/results/judge_llm_validation.json`. **No fix needed.**
+
+**2. Real-model correction (Qwen2.5-VL-3B, VQA-RAD closed, N=40) — ⚠️ ran, but
+correction slightly HURT accuracy; rectified.**
+Result: acc 0.625→0.575 (flagged 0.686→0.629), only 4 answers changed, fs
+0.202→0.265. This is the *known* VCD failure mode: on yes/no questions the model's
+language prior is often *correct*, and VCD suppresses the prior-aligned answer even
+when it was right. 40 samples / 4 changes is within noise, but the direction is
+real. **Root cause:** the default `vcd_margin=0.25` (tuned on the clean mock) is too
+permissive for a real model's noisier distributions. **Fix (notebook v2):** replaced
+the single run with a *cached* `vcd_margin` trade-off sweep
+{0, 0.25, 0.5, 1, 2, ∞} — one generation pass, margins applied cheaply — reporting
+`acc_after` and `fs_after` at each, and auto-selecting the safe operating point
+(smallest margin with `acc_after ≥ acc_before`; `margin=∞` provably returns to
+baseline). This is the proposal-prescribed "report the trade-off curve, not a single
+point." Sweep loop validated on CPU/mock (monotonic: mock prior-heavy 0.467→0.700 at
+low margin, →0.467 at ∞). **The honest takeaway to report: on real closed-set VQA,
+VCD helps only above a margin threshold; below it, the right-prior cases are hurt.**
+
+**3. Second model MedGemma — ❌ 403 gated (not a code error); rectified.**
+`google/medgemma-4b-it` returned "not in the authorized list" (access request
+pending/denied — see BLOCKERS). **Fix (notebook v2):** the cross-model check now uses
+the **ungated** `Qwen/Qwen2-VL-2B-Instruct` (runs the same adapter with the
+conservative `vcd_margin=1.0`); MedGemma remains an optional block that runs only if
+access is granted.
+
+**4. Faithfulness-LoRA — ❌ no output (silent failure); rectified.**
+No results file was pushed. Two likely causes, both fixed in v2: (a) v1 built the
+distill set by running full correction on **120** real-model samples (~2 h → probable
+Colab timeout) — v2 uses 30 samples, `n_probes=2`; (b) the distill selector used the
+absolute `keep_threshold=0.5`, but real-model fs≈0.26, so it would have selected
+**zero** targets — v2 selects the **top half by `fs_after` (data-driven median)**,
+verified on CPU to yield 15/30 targets regardless of fs scale. Also hardened the
+multimodal `Trainer` (`remove_unused_columns=False` — the classic silent killer that
+strips image/label columns; label masking of pad+image tokens; `use_cache=False` +
+gradient checkpointing) and wrapped train+eval so it **always writes a diagnostic
+JSON** (with traceback on failure) — no more silent no-output runs.
+
+All three notebooks also gained the `hf_hub>=0.34` strict-config patch (coerces bool
+config fields None→True) that the base-model loads were crashing on. Notebooks
+rebuilt, nbformat-valid; sweep + distill logic validated on CPU. **Ready to re-run.**
+
