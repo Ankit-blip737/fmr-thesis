@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "n": 40,
+  "n_flagged": 35,
+  "acc_before_all": 0.625,
+  "acc_after_all": 0.575,
+  "acc_before_flagged": 0.6857142857142857,
+  "acc_after_flagged": 0.6285714285714286,
+  "answers_changed": 4,
+  "fs_before_mean": 0.20239878582947415,
+  "fs_after_mean": 0.26461028763254635,
+  "seconds": 2301.2
+}
