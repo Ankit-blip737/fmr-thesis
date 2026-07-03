@@ -33,7 +33,8 @@ import make_figures
 
 
 def _write_configs(dataset: str, model_key: str, reasoning: str, non_reasoning: str,
-                    max_samples: int | None, n: int | None, split: str) -> Path:
+                    max_samples: int | None, n: int | None, split: str,
+                    image_root: str | None = None) -> Path:
     """Materialize an override config dir; returns its path."""
     base = {name: yaml.safe_load((CONFIG_DIR / f"{name}.yaml").read_text())
             for name in ("data", "models", "experiment")}
@@ -47,6 +48,8 @@ def _write_configs(dataset: str, model_key: str, reasoning: str, non_reasoning: 
         if max_samples is not None:
             data[dataset]["max_samples"] = max_samples
         data[dataset]["split"] = split
+        if image_root:
+            data[dataset]["image_root"] = image_root
 
     models["model"] = model_key or reasoning
     models["comparison"] = {"reasoning_model": reasoning, "non_reasoning_model": non_reasoning}
@@ -68,13 +71,15 @@ def main() -> None:
     ap.add_argument("--n", type=int, default=None, help="synthetic size override")
     ap.add_argument("--n-consistency", type=int, default=None)
     ap.add_argument("--split", default="test")
+    ap.add_argument("--image-root", default=None,
+                    help="dir of extracted images (SLAKE needs this - mirror has no inline images)")
     ap.add_argument("--alpha", type=float, default=0.05)
     ap.add_argument("--delta", type=float, default=0.05)
     ap.add_argument("--push", action="store_true", help="git commit+push outputs to origin")
     args = ap.parse_args()
 
     cfg_dir = _write_configs(args.dataset, args.model, args.reasoning, args.non_reasoning,
-                             args.max_samples, args.n, args.split)
+                             args.max_samples, args.n, args.split, args.image_root)
     out = f"fmr/outputs/real/{args.dataset}"
     Path(out).mkdir(parents=True, exist_ok=True)
 
