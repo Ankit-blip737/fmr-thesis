@@ -38,6 +38,13 @@ def run(models: list[str], split: str, out_dir: str, config_dir: str | None = No
         print(f"[baselines] {key:>16s}  acc={results['models'][key]['accuracy']:.3f}  "
               f"per-modality={results['models'][key]['per_modality']}")
 
+        # Free memory before the next model
+        del vlm
+        import gc; import torch
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     path = save_json(results, f"{out_dir}/baselines.json")
     print(f"[baselines] wrote {path}")
     return results

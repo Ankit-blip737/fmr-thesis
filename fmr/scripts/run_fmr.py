@@ -136,6 +136,13 @@ def run(out_dir: str, alpha: float, delta: float, post_correction: bool,
     save_json({"train": _strip(train_records), "cal": _strip(cal_records),
                "test": _strip(test_records)}, f"{out_dir}/fmr_records.json")
     print(f"[fmr] wrote {out_dir}/fmr_results.json and {out_dir}/fmr_records.json")
+
+    del vlm
+    import gc; import torch
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return results
 
 

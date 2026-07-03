@@ -126,6 +126,13 @@ def run(split: str, out_dir: str, config_dir: str | None = None) -> dict:
         print(f"[blind] {'':>16s}  IoU by step: "
               + "  ".join(f"s{k}={v:.3f}" for k, v in sorted((int(a), b) for a, b in r['iou_vs_step_index'].items())))
 
+        # Free memory before the next model
+        del vlm
+        import gc; import torch
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     results["replication"] = _replication_verdict(results)
     print(f"[blind] HEADLINE: {results['replication']['note']} "
           f"(drift slope={results['replication'].get('drift_slope', float('nan')):.4f})")
