@@ -63,6 +63,47 @@ class HFVLM:
         self._mismatch_pool: list[Any] = []  # filled by set_mismatch_pool()
 
     # ---- lazy load ----------------------------------------------------------
+    @staticmethod
+    def _patch_config_for_strict_hub(model_id: str) -> None:  # pragma: no cover
+        """Work around huggingface_hub>=0.34 StrictDataclassFieldValidationError.
+
+        huggingface_hub 0.34+ introduced strict dataclass validation that rejects
+        ``None`` for fields typed ``bool``.  Several open VLM configs on HF (e.g.
+        Qwen2-VL, MedVLM-R1) have ``"use_cache": null`` in their config.json, which
+        triggers:
+            StrictDataclassFieldValidationError: Field 'use_cache' expected bool,
+            got NoneType (value: None)
+        when transformers < 4.52 passes the raw dict straight to the dataclass.
+
+        Fix: monkey-patch ``transformers.configuration_utils.PretrainedConfig``'s
+        ``__init__`` to coerce None→True for all known bool fields *before* the
+        hf_hub validator fires.  This is safe: ``use_cache=None`` is semantically
+        equivalent to ``use_cache=True`` (the default) in every transformers model.
+
+        Alternatively, ``pip install 'transformers>=4.52.0'`` before running.
+        """
+        try:
+            import transformers
+            from transformers import configuration_utils
+
+            _BOOL_FIELDS = {"use_cache", "output_attentions", "output_hidden_states",
+                            "return_dict", "tie_word_embeddings", "is_decoder",
+                            "add_cross_attention", "chunk_size_feed_forward"}
+
+            _orig_init = configuration_utils.PretrainedConfig.__init__
+
+            def _patched_init(self_cfg, *args, **kwargs):
+                for field in _BOOL_FIELDS:
+                    if field in kwargs and kwargs[field] is None:
+                        kwargs[field] = True
+                _orig_init(self_cfg, *args, **kwargs)
+
+            if not getattr(configuration_utils.PretrainedConfig.__init__, "_fmr_patched", False):
+                configuration_utils.PretrainedConfig.__init__ = _patched_init
+                configuration_utils.PretrainedConfig.__init__._fmr_patched = True
+        except Exception:
+            pass  # If the patch fails, proceed — newer transformers doesn't need it.
+
     def _ensure_loaded(self) -> None:  # pragma: no cover - requires weights
         if self._model is not None:
             return
@@ -73,6 +114,8 @@ class HFVLM:
             from transformers import AutoModelForImageTextToText as _AutoVLM
         except Exception:  # older transformers
             from transformers import AutoModelForVision2Seq as _AutoVLM
+
+        self._patch_config_for_strict_hub(self.model_id)
 
         td = {"auto": "auto", "fp16": torch.float16, "bf16": torch.bfloat16}.get(self.dtype, "auto")
         self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
