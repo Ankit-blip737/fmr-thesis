@@ -28,7 +28,8 @@
         "1": 0.14044953654376974,
         "2": 0.13790338687473902,
         "3": 0.12336853749028606
-      }
+      },
+      "grounding_drift_slope": -0.032631834259405954
     },
     "mock_plain": {
       "name": "mock-plain",
@@ -49,7 +50,18 @@
       },
       "signal_b_vs_step_index": {
         "0": 0.5
-      }
+      },
+      "grounding_drift_slope": 0.0
     }
+  },
+  "replication": {
+    "tested": true,
+    "reasoning_model": "mock-reasoner",
+    "drift_slope": -0.032631834259405954,
+    "within_model_decay": true,
+    "reasoning_final_vs_plain": -0.10255699437563803,
+    "reasoning_less_grounded_than_plain": true,
+    "replicated": true,
+    "note": "headline 'more reasoning -> less grounded' REPLICATED"
   }
 }
