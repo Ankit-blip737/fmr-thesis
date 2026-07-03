@@ -1,12 +1,13 @@
 # FMR — Draft thesis sections (Instance B components)
 
 > Draft prose for the thesis, grounded in the numbers logged in `RESULTS_LOG.md`
-> (tag `[B]`). All figures below are from the offline synthetic pipeline
-> (`MockVLM` + `PriorHeavyMockVLM`); real-model numbers replace them once the
-> Colab runs land (`fmr/notebooks/colab_*.ipynb`). Every claim here is
-> reproducible from `fmr/scripts/` against `fmr/results/`. These sections cover
-> the correction module (Pillar 2), correction's contribution to abstention
-> (supporting Pillar 3), and the LLM-as-judge validation.
+> (tag `[B]`). Sections X–Z use the offline synthetic pipeline (`MockVLM` +
+> `PriorHeavyMockVLM`) to validate the *machinery*; **Section W reports the
+> real-model + integrated-pipeline results** (Qwen2.5-VL-3B, and the learned
+> verifier on Instance A's real signals) and states the honest limitations. Every
+> claim is reproducible from `fmr/scripts/` against `fmr/results/`. These sections
+> cover the correction module (Pillar 2), correction's contribution to abstention
+> (supporting Pillar 3), the LLM-as-judge validation, and the full integration.
 
 ---
 
@@ -212,3 +213,83 @@ The LLM judge is rubric-constrained (verdict word on the first line, one-sentenc
 justification on the second) and falls back to the heuristic on any provider error
 or unparseable completion, so a flaky judge can never silently emit garbage
 verdicts — it degrades to the validated rule instead.
+
+---
+
+## W. Real-Model Validation & Full-Pipeline Integration
+
+> These results replace the synthetic placeholders above with real-model numbers
+> and confirm the whole architecture runs as one system. Figures are from Colab GPU
+> runs (`fmr/notebooks/colab_*`) and the integrated `run_fmr_full.py`.
+
+### W.1 The integrated architecture (verified end-to-end)
+
+The full pipeline now executes in a single tree and a single call
+(`scripts/run_fmr_full.py`): a base VLM generates a rationale + answer → the
+measurement module scores Signals A (counterfactual), B (attention grounding) and C
+(self-consistency) and fuses them → **the correction module rewrites low-faithfulness
+cases** → the *post-correction* fused faithfulness score is passed to the
+split-conformal gate → the learned verifier and the LLM-judge provide the trained
+scorer and the open-ended metric. On the synthetic benchmark the incremental fusion
+climbs A = 0.819 → AB = 0.821 → ABC = 0.870 AUROC, and the correction module, wired
+in via its real interface, is applied to the flagged subset and *raises* accuracy
+(0.863 → 0.875) while lifting mean faithfulness (0.399 → 0.545). The calibration
+ordering is correct by construction: the gate is calibrated on the score the deployed
+system emits (post-correction), not the raw pre-correction score.
+
+### W.2 The learned verifier beats the heuristic on real signals (RQ5)
+
+Trained on the *real* measurement signals (not a stub), the learned faithfulness
+verifier outperforms the hand-weighted fusion it replaces:
+
+| Fusion of Signals A/B/C | AUROC vs. grounding latent |
+|---|---|
+| Heuristic (fixed 0.4/0.3/0.3) | 0.768 |
+| **Learned verifier — GBT, weak labels** | **0.816 (+0.048)** |
+| Learned verifier — logistic, weak labels | 0.801 (+0.033) |
+| Oracle (GBT, true labels) — upper bound | 0.951 |
+
+The learned head wins *without* any injected measurement noise, trained only on the
+weak grounding labels the pipeline already produces (IoU-threshold + counterfactual
+behaviour; weak-vs-true agreement 0.77). The oracle row shows substantial remaining
+headroom, so the model class is not the bottleneck — label quality is. This is the
+project's "we trained something and it provably helped" result, and it is additive
+and reversible: the heuristic fusion remains the always-works fallback.
+
+### W.3 Correction on a real medical VLM — an honest trade-off
+
+On VQA-RAD closed (yes/no) questions with Qwen2.5-VL-3B, correction is *not* a free
+lunch, and the margin sweep says so cleanly. Baseline accuracy is 0.625; adopting
+Visual Contrastive Decoding flips degrade accuracy at low margins (0.55–0.575) and
+recover to baseline only as the adopt-margin → ∞:
+
+| `vcd_margin` | 0.0 | 0.25 | 0.5 | 1.0 | 2.0 | ∞ |
+|---|---|---|---|---|---|---|
+| accuracy | 0.550 | 0.575 | 0.550 | 0.575 | 0.600 | **0.625** |
+| answers changed | 5 | 4 | 3 | 2 | 1 | 0 |
+
+The reason is well understood: on binary questions the language prior is frequently
+*correct*, and VCD suppresses a correct prior-aligned answer. The safe operating
+point on this task is therefore to use correction to *clean the rationale* (drop
+unsupported steps, which raises mean faithfulness) while **not** adopting answer flips
+— i.e. `vcd_margin = ∞`. This matches the synthetic finding that VCD's accuracy gain
+is concentrated on the *prior-dominated* pathology; closed-set radiology yes/no
+questions are not that pathology. The value of correction for the deployed system is
+in the faithfulness/abstention frontier, not in flipping closed answers — consistent
+with correction's role as supporting infrastructure for abstention.
+
+### W.4 Honest limitations of the real-model run
+
+- **Second real model (MedGemma) integration is incomplete.** MedGemma-4B produced
+  an image-*invariant* answer distribution through the closed-set choice-scoring
+  adapter (faithfulness ≈ 0, accuracy ≈ chance), i.e. the Gemma-3 input path is not
+  binding the image the way Qwen's is. Model-agnosticism of the FMR *layer* is
+  therefore demonstrated on Qwen2.5-VL-3B (real) plus two synthetic backends; a
+  Gemma-3-specific input adapter is future work.
+- **Conformal target.** The post-correction gate is infeasible at a 5% error target
+  on the small real/synthetic sets (correction inflates faithfulness, tightening the
+  feasible region) but feasible at ≤10%; the deployed guarantee should be reported at
+  α ≈ 0.10 with the full risk–coverage curve.
+- **Scale.** Real runs use a 40-item closed subset for tractability on free-tier
+  GPUs; the numbers are directional and the machinery, not the effect size, is what
+  they validate.

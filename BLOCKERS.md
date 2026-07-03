@@ -4,6 +4,28 @@ Each entry: what's blocked · exactly what is needed · what happens once provid
 
 ---
 
+## ⭐ CURRENT STATUS (Instance B) — 2026-07-04
+
+The project is **integrated end-to-end** (master merged into instance-b; 93 tests
+green; `run_fmr_full.py` connects signals→fusion→correction→post-corr FS→conformal
+gate). Open items needing you:
+
+- **[B] Re-run `fmr/notebooks/colab_faithfulness_lora.ipynb` (v3, T4-safe).** The v2
+  run hit CUDA OOM on the T4; v3 does 4-bit data-prep, frees the model before
+  training, and toggles the adapter for eval. Needs one Colab GPU run to produce the
+  frozen-vs-LoRA ablation. Add secrets `HF_TOKEN`+`GITHUB_TOKEN`, Run All.
+- **[B] Optional: re-run `colab_stage4_correction_real.ipynb`** — now prints an
+  image-sensitivity self-check per model (flags the MedGemma issue below). The Qwen
+  result is already valid and in `fmr/results/`.
+- **[B] MedGemma cross-model = FUTURE WORK (not a blocker).** MedGemma-4B returns an
+  image-invariant distribution through the closed-set adapter (fs≈0, acc≈chance) —
+  the Gemma-3 input path needs a model-specific adapter. Qwen2.5-VL-3B is the
+  validated real base model; model-agnosticism of the FMR layer is shown on Qwen +
+  2 mock backends. No action needed unless you want a second real model — then a
+  GPU session to debug the Gemma-3 image binding is required.
+
+---
+
 
 - **[B] 2026-07-03 — This machine is CPU-only.** No real-model inference is
   attempted here. Every GPU-dependent step in my scope gets a ready-to-run Colab
