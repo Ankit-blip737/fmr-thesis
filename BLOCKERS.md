@@ -38,6 +38,20 @@ Each entry: what's blocked · exactly what is needed · what happens once provid
   independent external check that upgrades the heuristic's tuned κ=1.0 into a
   trustworthy judge number.
 
+- **[B] 2026-07-03 — ✅ GPU run ready — `fmr/notebooks/colab_faithfulness_lora.ipynb`
+  CREATED & committed (nbformat-valid, 11 cells).** Stretch ablation (RQ3): open in
+  Colab (24GB GPU ideal; T4 works via QLoRA), add secrets `HF_TOKEN` +
+  `GITHUB_TOKEN`, Run All. Builds verified-grounded self-distillation targets from
+  the correction module (CPU-tested API), QLoRA-fine-tunes Qwen2.5-VL-3B, compares
+  frozen base vs faithfulness-LoRA on held-out VQA-RAD (accuracy + faithfulness),
+  saves `fmr/results/faithfulness_lora_*.json`, pushes to `instance-b`. Frozen base
+  stays the default; reported only as an ablation.
+
+- **[B] 2026-07-03 — Suggested run order if you run only some notebooks:** (1)
+  `colab_judge_llm.ipynb` — cheapest, validates a metric the whole benchmark uses;
+  (2) `colab_stage4_correction_real.ipynb` — confirms Stage-4 gains on a real model;
+  (3) `colab_faithfulness_lora.ipynb` — stretch, only after 1–2 land.
+
 ## Resolved
 
 - **[2026-07-03 — audit by human assistant]** Corrected two misleading blocker entries above — notebooks do not yet exist; Instance B will build on next run. Mock correction pipeline verified working locally. Both worktrees confirmed up to date with their respective remotes.

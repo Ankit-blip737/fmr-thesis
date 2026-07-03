@@ -23,6 +23,13 @@ from .verifier import (
 from .signals import compute_sample_features, SampleFeatures
 from .labels import weak_label_counterfactual, true_latent
 from .dataset import build_feature_frame
+from .faithfulness_lora import (
+    FaithfulnessLoRAConfig,
+    DistillExample,
+    PreferencePair,
+    build_self_distillation_set,
+    build_preference_pairs,
+)
 
 __all__ = [
     "HeuristicFusion",
@@ -34,4 +41,9 @@ __all__ = [
     "weak_label_counterfactual",
     "true_latent",
     "build_feature_frame",
+    "FaithfulnessLoRAConfig",
+    "DistillExample",
+    "PreferencePair",
+    "build_self_distillation_set",
+    "build_preference_pairs",
 ]

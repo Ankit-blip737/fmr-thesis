@@ -161,3 +161,45 @@ motivates the calibration-ordering handoff (fix #2): the gate must calibrate on 
 post-correction FS to capture this shifted frontier. Artifact:
 `fmr/results/correction_abstention_preview.json`.
 
+### [B] 2026-07-03 — Faithfulness-LoRA data construction (stretch; fit is GPU-only)
+
+`fmr/src/fmr/training/faithfulness_lora.py`: the CPU-testable half of the RQ3
+"can grounding be learned into the weights?" ablation. `build_self_distillation_set`
+turns the correction module's verified-grounded outputs into (question, grounded
+rationale, answer) targets — keeping only samples whose post-correction FS clears
+the bar, so an ungrounded rationale is never distilled. `build_preference_pairs`
+builds grounded-≻-ungrounded DPO pairs. The QLoRA fit itself is a GPU stub that
+points to the handoff notebook.
+
+**Verification (CPU):** `tests/test_faithfulness_lora.py` 4 passed —
+(1) distill set keeps only FS≥bar targets, well-formed; (2) image-blind samples are
+excluded (≤10% leak on the image-blind backend — we don't distill ungrounded
+chains); (3) preference pairs genuinely contrast chosen(FS≥bar) vs rejected(FS≤0.2);
+(4) the training entry-point raises on CPU (GPU-only). Full suite **46 passed**
+(4.35s). GPU run packaged: `fmr/notebooks/colab_faithfulness_lora.ipynb` (frozen
+base vs LoRA held-out ablation; frozen stays default — fix #4).
+
+---
+
+### [B] 2026-07-03 — Instance-B scope status snapshot
+
+Core + stretch of Instance B's scope are implemented, CPU-verified, committed, and
+pushed to `origin/instance-b`:
+- **Stage 4 correction** (VCD + clue-tracing + verify/revise + rescore + selective
+  pipeline) — done, 12 tests, mock gains logged, ready for A's calibration (fix #2
+  handoff posted).
+- **Second base VLM** (`PriorHeavyMockVLM` + `SecondHFVLM` scaffold) — done.
+- **LLM-judge + validation** (fix #3) — done, κ=1.0 on gold (caveated), 21 tests.
+- **Learned verifier** (RQ5) — done, noise-sweep shows learned>heuristic for σ≳0.2,
+  9 tests, ships-with-fallback.
+- **Correction→abstention preview** (fix #1 quantified) — done.
+- **Faithfulness-LoRA** (stretch) — data-construction done + tested; fit is a GPU
+  handoff notebook.
+- **5 GPU handoff notebooks/paths** ready on `instance-b` (correction-real,
+  judge-llm, faithfulness-lora). **46 tests passing** total.
+
+Open dependencies on Instance A (all flagged in DECISIONS.md [B], all with working
+stubs so nothing is blocked): real Signals A/B/C from `faithfulness/score.py` (to
+retrain the verifier on real data + feed the fused FS into the correction trigger),
+and wiring the post-correction FS into the conformal gate.
+
