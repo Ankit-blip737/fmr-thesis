@@ -11,15 +11,27 @@ entry point the Colab notebooks call. It:
 Git commit+push back to the branch is handled by the notebook (or --push here),
 so results land on the branch automatically per the GPU handoff protocol.
 
-Example (inside Colab):
-    python fmr/scripts/run_real.py \
-        --dataset slake --reasoning medvlm_r1 --non-reasoning qwen25_vl_3b \
-        --max-samples 400 --n-consistency 5 --push
+Resume support (for GPU-limit recovery across Colab sessions):
+  --skip-if-done   skip the entire dataset if run_status.json shows all stages ok.
+                   Use this to safely re-run all three datasets; completed ones
+                   finish in <1 second.
+  --resume         skip individual stages already marked "ok" in run_status.json.
+                   Use this to continue a partially-completed dataset after a
+                   GPU-limit interruption.
+
+Example (new Colab session after hitting GPU limit mid-PathVQA):
+    # vqa_rad already done — skip it instantly
+    python fmr/scripts/run_real.py --dataset vqa_rad --skip-if-done --push
+    # pathvqa was interrupted — resume from where it stopped
+    python fmr/scripts/run_real.py --dataset pathvqa --resume --push
+    # slake not started yet — run fully
+    python fmr/scripts/run_real.py --dataset slake --push
 """
 from __future__ import annotations
 
 import argparse
 import copy
+import json
 import tempfile
 from pathlib import Path
 
@@ -61,27 +73,57 @@ def _write_configs(dataset: str, model_key: str, reasoning: str, non_reasoning: 
     return tmp
 
 
+def _load_existing_status(out: str) -> dict:
+    """Load run_status.json if it exists, else return empty dict."""
+    p = Path(out) / "run_status.json"
+    if p.exists():
+        try:
+            return json.loads(p.read_text()).get("status", {})
+        except Exception:
+            pass
+    return {}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", default="slake")
-    ap.add_argument("--reasoning", default="medvlm_r1", help="models.yaml key for the reasoning VLM")
-    ap.add_argument("--non-reasoning", default="qwen25_vl_3b", help="models.yaml key for the non-reasoning VLM")
-    ap.add_argument("--model", default=None, help="single model for run_fmr (defaults to --reasoning)")
+    ap.add_argument("--reasoning", default="medvlm_r1",
+                    help="models.yaml key for the reasoning VLM")
+    ap.add_argument("--non-reasoning", default="qwen25_vl_3b",
+                    help="models.yaml key for the non-reasoning VLM")
+    ap.add_argument("--model", default=None,
+                    help="single model for run_fmr (defaults to --reasoning)")
     ap.add_argument("--max-samples", type=int, default=400)
     ap.add_argument("--n", type=int, default=None, help="synthetic size override")
     ap.add_argument("--n-consistency", type=int, default=None)
     ap.add_argument("--split", default="test")
     ap.add_argument("--image-root", default=None,
-                    help="dir of extracted images (SLAKE needs this - mirror has no inline images)")
+                    help="dir of extracted images (SLAKE needs this)")
     ap.add_argument("--alpha", type=float, default=0.05)
     ap.add_argument("--delta", type=float, default=0.05)
-    ap.add_argument("--push", action="store_true", help="git commit+push outputs to origin")
+    ap.add_argument("--push", action="store_true",
+                    help="git commit+push outputs to origin")
+    ap.add_argument("--skip-if-done", action="store_true",
+                    help="skip entire dataset if all stages already ok in run_status.json")
+    ap.add_argument("--resume", action="store_true",
+                    help="skip individual stages already marked ok in run_status.json")
     args = ap.parse_args()
+
+    out = f"fmr/outputs/real/{args.dataset}"
+    Path(out).mkdir(parents=True, exist_ok=True)
+
+    # --- Resume / skip logic ------------------------------------------------
+    existing_status = _load_existing_status(out)
+    all_stages = ["baselines", "blind_test", "fmr"]
+
+    if args.skip_if_done:
+        if all(existing_status.get(s) == "ok" for s in all_stages):
+            print(f"[run_real] {args.dataset}: all stages already OK — "
+                  f"skipping (--skip-if-done).")
+            return
 
     cfg_dir = _write_configs(args.dataset, args.model, args.reasoning, args.non_reasoning,
                              args.max_samples, args.n, args.split, args.image_root)
-    out = f"fmr/outputs/real/{args.dataset}"
-    Path(out).mkdir(parents=True, exist_ok=True)
 
     if args.n_consistency is not None:
         exp = yaml.safe_load((cfg_dir / "experiment.yaml").read_text())
@@ -90,6 +132,11 @@ def main() -> None:
 
     print(f"[run_real] dataset={args.dataset} reasoning={args.reasoning} "
           f"non_reasoning={args.non_reasoning} out={out}")
+
+    if args.resume and existing_status:
+        done = [s for s in all_stages if existing_status.get(s) == "ok"]
+        if done:
+            print(f"[run_real] --resume: carrying forward already-ok stages: {done}")
 
     def _push(stage: str) -> None:
         if not args.push:
@@ -111,15 +158,22 @@ def main() -> None:
     # discard the results of an earlier one — critically, the blind-test HEADLINE
     # (grounding-drift replication verdict) survives even if the full FMR stage
     # dies. Stages are ordered cheapest -> heaviest for exactly this reason.
-    status: dict[str, str] = {}
+    status: dict[str, str] = dict(existing_status)  # carry forward existing ok stages
     stages = [
         ("baselines", lambda: run_baselines.run(
-            [args.reasoning, args.non_reasoning], args.split, out, config_dir=str(cfg_dir))),
-        ("blind_test", lambda: run_blind_test.run(args.split, out, config_dir=str(cfg_dir))),
+            [args.reasoning, args.non_reasoning], args.split, out,
+            config_dir=str(cfg_dir))),
+        ("blind_test", lambda: run_blind_test.run(
+            args.split, out, config_dir=str(cfg_dir))),
         ("fmr", lambda: run_fmr.run(
-            out, alpha=args.alpha, delta=args.delta, post_correction=False, config_dir=str(cfg_dir))),
+            out, alpha=args.alpha, delta=args.delta, post_correction=False,
+            config_dir=str(cfg_dir))),
     ]
     for name, fn in stages:
+        # --resume: skip stages already marked ok in the previous run
+        if args.resume and status.get(name) == "ok":
+            print(f"[run_real] --resume: stage {name!r} already ok, skipping.")
+            continue
         try:
             fn()
             status[name] = "ok"
