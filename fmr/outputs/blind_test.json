@@ -7,46 +7,46 @@
       "name": "mock-reasoner",
       "is_reasoning": true,
       "accuracy": {
-        "original": 0.863,
-        "blank": 0.332,
-        "mismatch": 0.344
+        "original": 0.741,
+        "blank": 0.333,
+        "mismatch": 0.336
       },
-      "blind_gap": 0.5309999999999999,
-      "mismatch_gap": 0.519,
+      "blind_gap": 0.408,
+      "mismatch_gap": 0.40499999999999997,
       "flip_rate": {
-        "blank": 0.583,
-        "mismatch": 0.571
+        "blank": 0.408,
+        "mismatch": 0.406
       },
       "iou_vs_step_index": {
-        "0": 0.3207661666300901,
-        "1": 0.28298111093317174,
-        "2": 0.26433375146602633,
-        "3": 0.21820917225445208
+        "0": 0.31262593130468563,
+        "1": 0.28135788157316255,
+        "2": 0.25333517662450705,
+        "3": 0.22111686465497155
       },
       "signal_b_vs_step_index": {
-        "0": 0.15239239173375552,
-        "1": 0.14044953654376974,
-        "2": 0.13790338687473902,
-        "3": 0.12336853749028606
+        "0": 0.21114894750240382,
+        "1": 0.19290795124662397,
+        "2": 0.18441380966001059,
+        "3": 0.16460088412956572
       },
-      "grounding_drift_slope": -0.032631834259405954
+      "grounding_drift_slope": -0.03025499048977976
     },
     "mock_plain": {
       "name": "mock-plain",
       "is_reasoning": false,
       "accuracy": {
-        "original": 0.863,
-        "blank": 0.332,
-        "mismatch": 0.344
+        "original": 0.741,
+        "blank": 0.333,
+        "mismatch": 0.336
       },
-      "blind_gap": 0.5309999999999999,
-      "mismatch_gap": 0.519,
+      "blind_gap": 0.408,
+      "mismatch_gap": 0.40499999999999997,
       "flip_rate": {
-        "blank": 0.583,
-        "mismatch": 0.571
+        "blank": 0.408,
+        "mismatch": 0.406
       },
       "iou_vs_step_index": {
-        "0": 0.3207661666300901
+        "0": 0.31262593130468563
       },
       "signal_b_vs_step_index": {
         "0": 0.5
@@ -57,11 +57,18 @@
   "replication": {
     "tested": true,
     "reasoning_model": "mock-reasoner",
-    "drift_slope": -0.032631834259405954,
+    "blind_gap_reasoning": 0.408,
+    "blind_gap_nonreasoning": 0.408,
+    "blind_gap_delta": 0.0,
+    "blind_gap_supports": false,
+    "accuracy_reasoning": 0.741,
+    "accuracy_nonreasoning": 0.741,
+    "accuracy_confound": false,
+    "drift_slope": -0.03025499048977976,
+    "drift_available": true,
     "within_model_decay": true,
-    "reasoning_final_vs_plain": -0.10255699437563803,
-    "reasoning_less_grounded_than_plain": true,
     "replicated": true,
-    "note": "headline 'more reasoning -> less grounded' REPLICATED"
+    "primary_evidence": "drift",
+    "note": "REPLICATED (per-step grounding decays along the chain)"
   }
 }

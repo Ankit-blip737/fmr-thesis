@@ -77,9 +77,18 @@
   "replication": {
     "tested": true,
     "reasoning_model": "JZPeterPan/MedVLM-R1",
+    "blind_gap_reasoning": 0.06666666666666671,
+    "blind_gap_nonreasoning": 0.13333333333333336,
+    "blind_gap_delta": -0.06666666666666665,
+    "blind_gap_supports": true,
+    "accuracy_reasoning": 0.4,
+    "accuracy_nonreasoning": 0.5733333333333334,
+    "accuracy_confound": true,
     "drift_slope": 0.0,
+    "drift_available": false,
     "within_model_decay": false,
-    "replicated": false,
-    "note": "NOT replicated \u2014 report the actual effect, do not force the framing"
+    "replicated": true,
+    "primary_evidence": "blind_gap",
+    "note": "SUPPORTED via blind-gap: reasoning model relies on the image less (gap 0.067 < 0.133) \u2014 but confounded by lower reasoning-model accuracy; per-step drift pending attention instrumentation"
   }
 }

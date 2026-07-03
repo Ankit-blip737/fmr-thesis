@@ -6,23 +6,23 @@
     "mock_reasoner": {
       "name": "mock-reasoner",
       "is_reasoning": true,
-      "accuracy": 0.863,
+      "accuracy": 0.741,
       "per_modality": {
-        "ct": 0.8421052631578947,
-        "mri": 0.8682170542635659,
-        "pathology": 0.851145038167939,
-        "xray": 0.8927038626609443
+        "ct": 0.728744939271255,
+        "mri": 0.7441860465116279,
+        "pathology": 0.7404580152671756,
+        "xray": 0.7510729613733905
       }
     },
     "mock_plain": {
       "name": "mock-plain",
       "is_reasoning": false,
-      "accuracy": 0.863,
+      "accuracy": 0.741,
       "per_modality": {
-        "ct": 0.8421052631578947,
-        "mri": 0.8682170542635659,
-        "pathology": 0.851145038167939,
-        "xray": 0.8927038626609443
+        "ct": 0.728744939271255,
+        "mri": 0.7441860465116279,
+        "pathology": 0.7404580152671756,
+        "xray": 0.7510729613733905
       }
     }
   }

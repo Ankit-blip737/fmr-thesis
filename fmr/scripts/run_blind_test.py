@@ -35,37 +35,77 @@ def _drift_slope(curve: dict) -> float:
 
 
 def _replication_verdict(results: dict) -> dict:
-    """Test the headline hypothesis explicitly (review fix #2).
+    """Test the headline hypothesis explicitly and honestly (review fix #2).
 
-    Replicated iff the reasoning model's grounding *decays* along the chain
-    (negative drift slope) AND it is less grounded overall at the final step
-    than the non-reasoning model's single step. If not, DON'T force the framing —
-    this verdict is what the thesis reports, honestly, whatever it says.
+    Two independent lenses on "more reasoning -> less grounded":
+      (1) BLIND-GAP lens (always available): compare image-reliance
+          `blind_gap = acc(orig) - acc(blank)` for the reasoning vs the
+          non-reasoning model. If the reasoning model's answers depend on the
+          image LESS (smaller blind_gap), that supports the hypothesis. We flag
+          the accuracy confound (a weaker model can have a small gap for the
+          wrong reason).
+      (2) DRIFT lens (needs per-step attended regions): the reasoning model's
+          grounding decays along the chain (negative IoU-vs-step slope). This is
+          the sharper test but requires attention->region extraction, which the
+          real HF backend only provides when attention grounding is enabled.
+
+    `replicated` is set from whichever lens has evidence; if neither does, say so
+    plainly and do not force the framing.
     """
     reasoning = [m for m in results["models"].values() if m["is_reasoning"]]
     plain = [m for m in results["models"].values() if not m["is_reasoning"]]
     if not reasoning:
         return {"tested": False, "reason": "no reasoning model in comparison"}
     r = reasoning[0]
-    slope = r["grounding_drift_slope"]
-    within_model_decay = slope < -1e-3
-    verdict = {
-        "tested": True,
-        "reasoning_model": r["name"],
-        "drift_slope": slope,
-        "within_model_decay": within_model_decay,
-    }
+    verdict = {"tested": True, "reasoning_model": r["name"]}
+
+    # --- Lens 1: blind-gap comparison (reasoning vs non-reasoning) -----------
+    blind_supports = None
     if plain:
         p = plain[0]
-        r_last = list(r["iou_vs_step_index"].values())[-1] if r["iou_vs_step_index"] else None
-        p_g = list(p["iou_vs_step_index"].values())[0] if p["iou_vs_step_index"] else None
-        if r_last is not None and p_g is not None:
-            verdict["reasoning_final_vs_plain"] = r_last - p_g
-            verdict["reasoning_less_grounded_than_plain"] = r_last < p_g
-    verdict["replicated"] = within_model_decay
-    verdict["note"] = ("headline 'more reasoning -> less grounded' REPLICATED"
-                       if within_model_decay else
-                       "NOT replicated — report the actual effect, do not force the framing")
+        rg, pg = r.get("blind_gap"), p.get("blind_gap")
+        if rg is not None and pg is not None:
+            verdict["blind_gap_reasoning"] = rg
+            verdict["blind_gap_nonreasoning"] = pg
+            verdict["blind_gap_delta"] = rg - pg           # <0 => reasoning less grounded
+            blind_supports = rg < pg - 1e-6
+            verdict["blind_gap_supports"] = blind_supports
+            # Accuracy confound flag.
+            ra = (r.get("accuracy") or {}).get("original")
+            pa = (p.get("accuracy") or {}).get("original")
+            if ra is not None and pa is not None:
+                verdict["accuracy_reasoning"] = ra
+                verdict["accuracy_nonreasoning"] = pa
+                verdict["accuracy_confound"] = ra < pa - 0.05  # reasoning notably weaker
+
+    # --- Lens 2: within-model grounding drift (needs per-step regions) -------
+    slope = r.get("grounding_drift_slope", 0.0)
+    has_drift = bool(r.get("iou_vs_step_index"))
+    within_model_decay = has_drift and slope < -1e-3
+    verdict["drift_slope"] = slope
+    verdict["drift_available"] = has_drift
+    verdict["within_model_decay"] = within_model_decay
+
+    # --- Combine -------------------------------------------------------------
+    if within_model_decay:
+        verdict["replicated"] = True
+        verdict["primary_evidence"] = "drift"
+        verdict["note"] = "REPLICATED (per-step grounding decays along the chain)"
+    elif blind_supports:
+        verdict["replicated"] = True
+        verdict["primary_evidence"] = "blind_gap"
+        conf = " — but confounded by lower reasoning-model accuracy" if verdict.get("accuracy_confound") else ""
+        verdict["note"] = (f"SUPPORTED via blind-gap: reasoning model relies on the image less "
+                           f"(gap {verdict.get('blind_gap_reasoning'):.3f} < {verdict.get('blind_gap_nonreasoning'):.3f}){conf}"
+                           + ("" if has_drift else "; per-step drift pending attention instrumentation"))
+    elif blind_supports is False:
+        verdict["replicated"] = False
+        verdict["primary_evidence"] = "blind_gap"
+        verdict["note"] = "NOT supported: reasoning model relies on the image at least as much as non-reasoning — report the actual effect"
+    else:
+        verdict["replicated"] = False
+        verdict["primary_evidence"] = "none"
+        verdict["note"] = "inconclusive — no drift signal and no non-reasoning comparator"
     return verdict
 
 

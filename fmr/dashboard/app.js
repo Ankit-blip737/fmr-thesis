@@ -123,10 +123,17 @@
     const val = fr.validation || {}, ab = fr.abstention || {};
     const gate = (ab.fs && ab.fs.test) || {};
     const rep = bt.replication || {};
+    // Card 1 — headline: drift slope when available, else the blind-gap delta.
+    const headCard = (rep.primary_evidence === "blind_gap" || rep.drift_available === false)
+      ? { k: "Image-reliance gap (reasoning)", v: fmt(rep.blind_gap_reasoning, 3),
+          s: rep.blind_gap_supports ? `< non-reasoning ${fmt(rep.blind_gap_nonreasoning,3)} ✓` : "vs non-reasoning" }
+      : { k: "Grounding drift slope", v: fmt(rep.drift_slope, 3), s: rep.replicated ? "decays along chain ✓" : "no decay" };
     const cards = [
-      { k: "Grounding drift slope", v: fmt(rep.drift_slope, 3), s: rep.replicated ? "decays along chain ✓" : "no decay" },
-      { k: "Fused-FS separation", v: fmt(val.auroc_fs, 3), s: "AUROC vs grounding" },
-      { k: "Answered @ gate", v: pct(gate.coverage), s: `error ${pct(gate.retained_error)} (α=${fmt(ab.alpha,2)})` },
+      headCard,
+      { k: "Fused-FS separation", v: val.auroc_fs != null ? fmt(val.auroc_fs, 3) : "n/a",
+        s: val.auroc_fs != null ? "AUROC vs grounding" : "no grounding labels (real)" },
+      { k: "Answered @ gate", v: gate.coverage != null ? pct(gate.coverage) : "—",
+        s: gate.coverage ? `error ${pct(gate.retained_error)} (α=${fmt(ab.alpha,2)})` : `abstain-all (α=${fmt(ab.alpha,2)})` },
       { k: "Test cases", v: fr.n_test ?? "—", s: (src.kind === "real" ? "real" : "synthetic") + " dataset" },
     ];
     $("#stat-cards").innerHTML = cards.map(c => `<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="s">${c.s}</div></div>`).join("");
@@ -138,9 +145,21 @@
     const vEl = $("#replication-verdict");
     if (rep.tested) {
       vEl.className = "verdict " + (rep.replicated ? "yes" : "no");
+      let sub = rep.note || "";
+      if (rep.primary_evidence === "blind_gap" && rep.blind_gap_reasoning != null) {
+        sub = `${rep.reasoning_model}: image-reliance gap ${fmt(rep.blind_gap_reasoning, 3)} vs `
+            + `non-reasoning ${fmt(rep.blind_gap_nonreasoning, 3)}`
+            + (rep.accuracy_confound ? " — ⚠ confounded by lower reasoning-model accuracy" : "")
+            + (rep.drift_available ? "" : "; per-step drift pending attention instrumentation");
+      } else if (rep.primary_evidence === "drift") {
+        sub = `${rep.reasoning_model} · grounding-drift slope ${fmt(rep.drift_slope, 4)} (decays along the chain)`;
+      }
+      const head = rep.replicated
+        ? (rep.primary_evidence === "drift" ? "Headline REPLICATED" : "Headline SUPPORTED")
+        : "Headline NOT supported — reporting the actual effect";
       vEl.innerHTML = `<span class="icon">${rep.replicated ? "✓" : "✕"}</span>
-        <div><div>${rep.replicated ? "Headline REPLICATED" : "Headline NOT replicated — reporting the actual effect"}</div>
-        <div class="sub">${rep.reasoning_model || "reasoning model"} · grounding-drift slope ${fmt(rep.drift_slope,4)}</div></div>`;
+        <div><div>${head} <span style="font-weight:500;opacity:.7">(${rep.primary_evidence} lens)</span></div>
+        <div class="sub">${sub}</div></div>`;
     } else { vEl.className = ""; vEl.innerHTML = ""; }
 
     const models = bt.models || {};
