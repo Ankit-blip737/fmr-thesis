@@ -126,7 +126,9 @@ def run(split: str, out_dir: str, config_dir: str | None = None) -> dict:
         print(f"[blind] {'':>16s}  IoU by step: "
               + "  ".join(f"s{k}={v:.3f}" for k, v in sorted((int(a), b) for a, b in r['iou_vs_step_index'].items())))
 
-        # Free memory before the next model
+        # Free GPU memory before the next model loads (explicit unload > del).
+        if hasattr(vlm, "unload"):
+            vlm.unload()
         del vlm
         import gc; import torch
         gc.collect()

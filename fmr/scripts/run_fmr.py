@@ -137,6 +137,8 @@ def run(out_dir: str, alpha: float, delta: float, post_correction: bool,
                "test": _strip(test_records)}, f"{out_dir}/fmr_records.json")
     print(f"[fmr] wrote {out_dir}/fmr_results.json and {out_dir}/fmr_records.json")
 
+    if hasattr(vlm, "unload"):
+        vlm.unload()
     del vlm
     import gc; import torch
     gc.collect()

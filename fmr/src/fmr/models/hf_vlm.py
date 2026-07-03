@@ -39,7 +39,8 @@ class HFVLM:
         is_reasoning: bool = True,
         max_new_tokens: int = 256,
         grid: int = 4,
-        dtype: str = "auto",
+        dtype: str = "fp16",
+        max_image_side: int = 512,
         **kw: Any,
     ) -> None:
         try:
@@ -57,6 +58,11 @@ class HFVLM:
         self.max_new_tokens = max_new_tokens
         self.grid = grid
         self.dtype = dtype
+        # Cap the longest image side. Medical scans are high-res (VQA-RAD ~1024px);
+        # Qwen2.5-VL tokenizes by pixels, so a 1024px image explodes into thousands
+        # of vision tokens whose O(n^2) attention OOMs a 14.5 GB T4. 512px keeps
+        # the vision encoder well within budget and barely dents accuracy.
+        self.max_image_side = max_image_side
         self._kw = kw
         self._model = None
         self._processor = None
@@ -126,26 +132,55 @@ class HFVLM:
 
         self._patch_config_for_strict_hub()
 
-        td = {"auto": "auto", "fp16": torch.float16, "bf16": torch.bfloat16}.get(self.dtype, "auto")
-        self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
+        td = {"auto": "auto", "fp16": torch.float16, "bf16": torch.bfloat16}.get(self.dtype, torch.float16)
+        # Bound the processor's pixel budget too (belt-and-suspenders with the
+        # image resize in _load_image), so vision-token count stays small.
+        px = self.max_image_side * self.max_image_side
+        try:
+            self._processor = AutoProcessor.from_pretrained(
+                self.model_id, trust_remote_code=True, max_pixels=px, min_pixels=256 * 256)
+        except Exception:
+            self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
         self._model = _AutoVLM.from_pretrained(
-            self.model_id, torch_dtype=td, device_map=self.device, trust_remote_code=True
+            self.model_id, torch_dtype=td, device_map=self.device,
+            trust_remote_code=True, low_cpu_mem_usage=True,
         )
         self._model.eval()
+
+    def unload(self) -> None:  # pragma: no cover
+        """Free the model + processor from GPU (call before loading another)."""
+        import gc
+        import torch
+        self._model = None
+        self._processor = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def set_mismatch_pool(self, images: list[Any]) -> None:
         """Provide a pool of images used to build the 'mismatch' variant."""
         self._mismatch_pool = list(images)
 
     # ---- image variant construction -----------------------------------------
+    def _downscale(self, img):  # pragma: no cover
+        """Shrink so the longest side <= max_image_side (never upscales)."""
+        m = self.max_image_side
+        w, h = img.size
+        if max(w, h) <= m:
+            return img
+        s = m / float(max(w, h))
+        return img.resize((max(1, int(w * s)), max(1, int(h * s))))
+
     def _load_image(self, image: Any):  # pragma: no cover
         from PIL import Image
 
         if image is None:
-            return Image.new("RGB", (336, 336), (128, 128, 128))
+            return Image.new("RGB", (self.max_image_side, self.max_image_side), (128, 128, 128))
         if isinstance(image, str):
-            return Image.open(image).convert("RGB")
-        return image.convert("RGB") if hasattr(image, "convert") else image
+            img = Image.open(image).convert("RGB")
+        else:
+            img = image.convert("RGB") if hasattr(image, "convert") else image
+        return self._downscale(img)
 
     def _variant_image(self, sample: Sample, variant: str):  # pragma: no cover
         from PIL import Image
@@ -198,14 +233,20 @@ class HFVLM:
             enc_full = self._processor(text=[full], images=[image], return_tensors="pt").to(self.device)
             with torch.no_grad():
                 out = self._model(**enc_full)
-            logits = out.logits[0]  # (seq, vocab)
-            ids = enc_full["input_ids"][0]
-            p_len = enc_prompt["input_ids"].shape[1]
-            lp = 0.0
-            for t in range(p_len, ids.shape[0]):
-                logp = torch.log_softmax(logits[t - 1], dim=-1)
-                lp += float(logp[ids[t]])
-            logprobs.append(lp / max(1, ids.shape[0] - p_len))  # length-normalized
+                logits = out.logits[0]  # (seq, vocab)
+                ids = enc_full["input_ids"][0]
+                p_len = enc_prompt["input_ids"].shape[1]
+                tgt = ids[p_len:]
+                if tgt.numel():
+                    lp_tokens = torch.log_softmax(logits[p_len - 1:ids.shape[0] - 1], dim=-1)
+                    lp = float(lp_tokens.gather(1, tgt.unsqueeze(1)).sum())
+                else:
+                    lp = 0.0
+            logprobs.append(lp / max(1, int(tgt.numel())))  # length-normalized
+            # Free per-candidate: high-res vision activations must not accumulate.
+            del out, logits, enc_full, enc_prompt
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         arr = np.array(logprobs)
         e = np.exp(arr - arr.max())
         return e / e.sum()
@@ -253,7 +294,15 @@ class HFVLM:
         logits = self._score_candidates(sample, image, candidates)
 
         # Decompose the reasoning into steps; attach best-effort regions.
-        rationale = text.split("Answer:")[0].strip() or text
+        # Prefer a <think>...</think> block (MedVLM-R1 format); else the text
+        # before "Answer:"; strip any <answer> tag out of the rationale.
+        import re as _re
+        think = _re.search(r"<think>(.*?)</think>", text, _re.I | _re.S)
+        if think:
+            rationale = think.group(1).strip()
+        else:
+            rationale = _re.sub(r"<answer>.*?</answer>", "", text.split("Answer:")[0],
+                                flags=_re.I | _re.S).strip() or text
         steps = decompose_rationale(rationale) if self.is_reasoning else [Step(text=rationale)]
         regions = self._step_regions(len(steps), sample)
         for st, reg in zip(steps, regions):
@@ -269,12 +318,28 @@ class HFVLM:
         )
 
     def _parse_answer(self, text: str, sample: Sample) -> str:  # pragma: no cover
-        """Extract the final answer, snapping to a choice when one is given."""
-        ans = text.split("Answer:")[-1].strip().split("\n")[0].strip().lower()
-        ans = ans.strip(" .:'\"")
+        """Extract the final answer, robust to model output format.
+
+        Handles three formats: ``<answer>X</answer>`` (MedVLM-R1 / R1-style),
+        ``Answer: X`` (our prompt), and free text. Snaps to a choice when one is
+        given, scanning the whole text as a last resort before defaulting.
+        """
+        import re
+        m = re.search(r"<answer>(.*?)</answer>", text, re.I | re.S)
+        if m:
+            span = m.group(1)
+        elif "Answer:" in text:
+            span = text.split("Answer:")[-1]
+        else:  # strip a think block, take the tail
+            span = re.sub(r"<think>.*?</think>", "", text, flags=re.I | re.S)
+        ans = span.strip().split("\n")[0].strip(" .:'\"*").lower()
         if sample.answer_choices:
-            for c in sample.answer_choices:
-                if c.lower() in ans:
+            lc = [c.lower() for c in sample.answer_choices]
+            for c, cl in zip(sample.answer_choices, lc):        # in the answer span
+                if re.search(r"\b" + re.escape(cl) + r"\b", ans):
+                    return c
+            for c, cl in zip(sample.answer_choices, lc):        # anywhere in the text
+                if re.search(r"\b" + re.escape(cl) + r"\b", text.lower()):
                     return c
             return sample.answer_choices[0]
         return ans or text.strip().lower()[:40]

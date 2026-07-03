@@ -38,7 +38,9 @@ def run(models: list[str], split: str, out_dir: str, config_dir: str | None = No
         print(f"[baselines] {key:>16s}  acc={results['models'][key]['accuracy']:.3f}  "
               f"per-modality={results['models'][key]['per_modality']}")
 
-        # Free memory before the next model
+        # Free GPU memory before the next model loads (explicit unload > del).
+        if hasattr(vlm, "unload"):
+            vlm.unload()
         del vlm
         import gc; import torch
         gc.collect()
