@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-if TYPE_CHECKING:  # break the types -> data -> synthetic -> types import cycle;
-    # Region is only referenced in (PEP 563 lazy) annotations here.
+if TYPE_CHECKING:  # Region is annotation-only here; avoids the types -> data ->
+    # synthetic -> types circular import (PEP 563 lazy annotations).
     from .data.regions import Region
 
 

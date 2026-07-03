@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FMR — Faithful Medical Reasoning</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">FMR</div>
+      <div class="brand-text">
+        <h1>Faithful Medical Reasoning</h1>
+        <p>A faithfulness verification &amp; calibrated-abstention layer for medical VLMs</p>
+      </div>
+    </div>
+    <div class="source-picker">
+      <label for="source">Data source</label>
+      <select id="source"></select>
+      <span id="source-badge" class="badge">—</span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <a href="#overview" class="active">Overview</a>
+    <a href="#diagnosis">The Diagnosis</a>
+    <a href="#measurement">Measurement</a>
+    <a href="#safety">Safety Layer</a>
+    <a href="#explorer">Case Explorer</a>
+    <a href="#robustness">Robustness</a>
+  </nav>
+
+  <main id="app">
+    <!-- OVERVIEW -->
+    <section id="overview" class="panel">
+      <h2>Overview</h2>
+      <p class="lead">
+        Medical AI that "thinks out loud" <em>sounds</em> trustworthy — but its reasoning is
+        often not actually looking at the scan, and the more it reasons, the worse this gets.
+        FMR <strong>measures</strong> whether each reasoning step is grounded in the image,
+        <strong>corrects</strong> it when it drifts, and <strong>abstains</strong> — deferring to
+        a clinician — when faithfulness cannot be verified, with a distribution-free guarantee.
+      </p>
+      <div class="claims">
+        <div class="claim">
+          <span class="claim-tag">Claim A · Diagnosis</span>
+          <p>Medical reasoning VLMs lose visual groundedness as the reasoning chain grows.</p>
+        </div>
+        <div class="claim">
+          <span class="claim-tag safe">Claim B · Safety</span>
+          <p>A calibrated, faithfulness-triggered abstention gate is a new safety layer for that failure mode.</p>
+        </div>
+      </div>
+      <div id="stat-cards" class="cards"></div>
+      <p class="note" id="provenance"></p>
+    </section>
+
+    <!-- DIAGNOSIS -->
+    <section id="diagnosis" class="panel">
+      <h2>The Diagnosis — does grounding decay along the reasoning chain?</h2>
+      <div id="replication-verdict"></div>
+      <div class="grid-2">
+        <figure class="chart-card">
+          <figcaption>Grounding vs reasoning-step index</figcaption>
+          <div id="chart-drift"></div>
+          <p class="cap">Mean IoU between each step's attended region and the ground-truth evidence region. A downward slope is the headline effect.</p>
+        </figure>
+        <figure class="chart-card">
+          <figcaption>Blind test — reliance on the image</figcaption>
+          <div id="chart-blind"></div>
+          <p class="cap">Accuracy with the true image vs a blanked / mismatched image. A large drop means the answer genuinely depends on the image.</p>
+        </figure>
+      </div>
+    </section>
+
+    <!-- MEASUREMENT -->
+    <section id="measurement" class="panel">
+      <h2>Measurement — the multi-signal Faithfulness Score</h2>
+      <p class="lead">Three independent signals — <strong>A</strong> counterfactual sensitivity,
+        <strong>B</strong> attention grounding, <strong>C</strong> self-consistency — are fused
+        into one score. The fusion is designed to beat any single signal.</p>
+      <div class="grid-2">
+        <figure class="chart-card">
+          <figcaption>Separation power (AUROC vs grounding label)</figcaption>
+          <div id="chart-auroc"></div>
+          <p class="cap">How well each signal — and the fused FS — separates grounded from ungrounded reasoning.</p>
+        </figure>
+        <figure class="chart-card">
+          <figcaption>Score distributions: grounded vs ungrounded</figcaption>
+          <div class="seg" id="sep-toggle"></div>
+          <div id="chart-sep"></div>
+          <p class="cap">Overlap of the selected signal for grounded (green) vs ungrounded (red) cases. Less overlap = more discriminative.</p>
+        </figure>
+      </div>
+    </section>
+
+    <!-- SAFETY -->
+    <section id="safety" class="panel">
+      <h2>Safety Layer — calibrated abstention</h2>
+      <div class="grid-2">
+        <figure class="chart-card">
+          <figcaption>Risk–coverage: faithfulness vs confidence as the deferral trigger</figcaption>
+          <div id="chart-rc"></div>
+          <p class="cap">Error on answered cases vs fraction answered. Lower curves are better. The star marks the calibrated operating point.</p>
+        </figure>
+        <div class="stack">
+          <div id="guarantee-card"></div>
+          <figure class="chart-card">
+            <figcaption>Per-modality accuracy &amp; mean FS</figcaption>
+            <div id="chart-modality"></div>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPLORER -->
+    <section id="explorer" class="panel">
+      <h2>Case Explorer</h2>
+      <p class="lead">Pick a case to see its reasoning chain, per-signal scores, and the
+        <strong>ANSWER / ABSTAIN</strong> decision from the calibrated gate.</p>
+      <div class="explorer">
+        <div class="case-list-wrap">
+          <div class="filters" id="case-filters"></div>
+          <div class="case-list" id="case-list"></div>
+        </div>
+        <div class="case-detail" id="case-detail"></div>
+      </div>
+    </section>
+
+    <!-- ROBUSTNESS -->
+    <section id="robustness" class="panel">
+      <h2>Robustness &amp; Ablations</h2>
+      <div class="grid-2">
+        <figure class="chart-card">
+          <figcaption>Incremental fusion (A → A+B → A+B+C)</figcaption>
+          <div id="chart-incr"></div>
+          <p class="cap">Does adding each signal help? Compared across base models (model-agnosticism).</p>
+        </figure>
+        <figure class="chart-card">
+          <figcaption>FS robustness to fusion weights</figcaption>
+          <div id="chart-weights"></div>
+          <p class="cap">AUROC across the whole weight simplex. A tight band = the score isn't a lucky weighting.</p>
+        </figure>
+        <figure class="chart-card">
+          <figcaption>Signal-B grid sensitivity</figcaption>
+          <div id="chart-grid"></div>
+          <p class="cap">Grounding signal is present across resolutions — not a grid artifact.</p>
+        </figure>
+        <figure class="chart-card">
+          <figcaption>Conformal power — calibration data needed per α</figcaption>
+          <div id="chart-power"></div>
+          <p class="cap">Tighter guarantees (smaller α) require more calibration data.</p>
+        </figure>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p><strong>Honesty notes.</strong> Numbers shown for the <em>Mock (synthetic)</em> source
+      validate the machinery on synthetic data (labeled as such); empirical claims come from the
+      real-model source. Signal&nbsp;B IoU is validated only where ground-truth boxes exist. The
+      abstention guarantee is finite-sample and needs sufficient calibration data. FMR is a
+      research artifact, not a deployed clinical tool — the contribution is the safety mechanism.</p>
+    </footer>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

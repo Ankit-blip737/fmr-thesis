@@ -19,10 +19,14 @@ class Region:
 
     def __post_init__(self) -> None:
         # Normalize ordering so x0<=x1, y0<=y1 without mutating a frozen field.
-        object.__setattr__(self, "x0", float(min(self.x0, self.x1)))
-        object.__setattr__(self, "x1", float(max(self.x0, self.x1)))
-        object.__setattr__(self, "y0", float(min(self.y0, self.y1)))
-        object.__setattr__(self, "y1", float(max(self.y0, self.y1)))
+        # Snapshot all four first — reading self.x0 after overwriting it would
+        # collapse reversed boxes to zero area.
+        x0, x1 = min(self.x0, self.x1), max(self.x0, self.x1)
+        y0, y1 = min(self.y0, self.y1), max(self.y0, self.y1)
+        object.__setattr__(self, "x0", float(x0))
+        object.__setattr__(self, "x1", float(x1))
+        object.__setattr__(self, "y0", float(y0))
+        object.__setattr__(self, "y1", float(y1))
 
     @property
     def area(self) -> float:

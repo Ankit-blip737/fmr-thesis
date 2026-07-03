@@ -1,0 +1,14 @@
+# Core (offline mock pipeline — always sufficient to reproduce the machinery)
+numpy
+scipy
+pyyaml
+matplotlib
+scikit-learn
+
+# Real-model track (GPU / Colab only)
+# torch
+# transformers>=4.49
+# datasets
+# pillow
+# accelerate
+# qwen-vl-utils

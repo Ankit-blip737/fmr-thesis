@@ -1,0 +1,48 @@
+# Base VLM backends. `model` picks the active one for single-model scripts;
+# run_blind_test.py compares `reasoning_model` vs `non_reasoning_model`.
+
+model: mock_reasoner
+
+mock_reasoner:
+  backend: mock
+  name: mock-reasoner
+  is_reasoning: true
+  n_steps: 4
+  drift: 0.35            # "more reasoning -> less grounded" strength in the mock
+  seed: 0
+
+mock_plain:
+  backend: mock
+  name: mock-plain
+  is_reasoning: false
+  seed: 0
+
+# A second, behaviourally-distinct reasoning base model — different drift,
+# grounding/prior peaks, and seed — used for the model-agnosticism ablation
+# (FMR should work across bases, not just one). Stands in for a second real VLM.
+mock_reasoner_b:
+  backend: mock
+  name: mock-reasoner-b
+  is_reasoning: true
+  n_steps: 5
+  drift: 0.5
+  grounded_peak: 2.8
+  prior_peak: 1.8
+  seed: 101
+
+# Real backends (GPU only — run via notebooks/colab_*.ipynb, never locally).
+qwen25_vl_3b:
+  backend: hf
+  model_id: Qwen/Qwen2.5-VL-3B-Instruct
+  is_reasoning: false    # prompted for direct answers (non-reasoning baseline)
+  device: cuda
+
+medvlm_r1:
+  backend: hf
+  model_id: JZPeterPan/MedVLM-R1
+  is_reasoning: true     # RL-tuned to emit <think>...</think> chains
+  device: cuda
+
+comparison:
+  reasoning_model: mock_reasoner
+  non_reasoning_model: mock_plain

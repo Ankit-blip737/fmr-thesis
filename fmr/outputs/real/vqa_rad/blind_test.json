@@ -1,0 +1,85 @@
+{
+  "dataset": "vqa_rad",
+  "split": "test",
+  "n": 75,
+  "models": {
+    "medvlm_r1": {
+      "name": "JZPeterPan/MedVLM-R1",
+      "is_reasoning": true,
+      "accuracy": {
+        "original": 0.4,
+        "blank": 0.3333333333333333,
+        "mismatch": 0.3466666666666667
+      },
+      "blind_gap": 0.06666666666666671,
+      "mismatch_gap": 0.053333333333333344,
+      "flip_rate": {
+        "blank": 0.5466666666666666,
+        "mismatch": 0.49333333333333335
+      },
+      "iou_vs_step_index": {},
+      "signal_b_vs_step_index": {
+        "0": 0.5,
+        "1": 0.5,
+        "2": 0.5,
+        "3": 0.5,
+        "4": 0.5,
+        "5": 0.5,
+        "6": 0.5,
+        "7": 0.5,
+        "8": 0.5,
+        "9": 0.5,
+        "10": 0.5,
+        "11": 0.5,
+        "12": 0.5,
+        "13": 0.5,
+        "14": 0.5,
+        "15": 0.5,
+        "16": 0.5,
+        "17": 0.5,
+        "18": 0.5,
+        "19": 0.5,
+        "20": 0.5,
+        "21": 0.5,
+        "22": 0.5,
+        "23": 0.5,
+        "24": 0.5,
+        "25": 0.5,
+        "26": 0.5,
+        "27": 0.5,
+        "28": 0.5,
+        "29": 0.5,
+        "30": 0.5
+      },
+      "grounding_drift_slope": 0.0
+    },
+    "qwen25_vl_3b": {
+      "name": "Qwen/Qwen2.5-VL-3B-Instruct",
+      "is_reasoning": false,
+      "accuracy": {
+        "original": 0.5733333333333334,
+        "blank": 0.44,
+        "mismatch": 0.48
+      },
+      "blind_gap": 0.13333333333333336,
+      "mismatch_gap": 0.09333333333333338,
+      "flip_rate": {
+        "blank": 0.4666666666666667,
+        "mismatch": 0.30666666666666664
+      },
+      "iou_vs_step_index": {},
+      "signal_b_vs_step_index": {
+        "0": 0.5
+      },
+      "grounding_drift_slope": 0.0
+    }
+  },
+  "replication": {
+    "tested": true,
+    "reasoning_model": "JZPeterPan/MedVLM-R1",
+    "drift_slope": 0.0,
+    "within_model_decay": false,
+    "replicated": false,
+    "note": "NOT replicated \u2014 report the actual effect, do not force the framing"
+  }
+}
