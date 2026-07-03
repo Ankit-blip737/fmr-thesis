@@ -1,0 +1,70 @@
+{
+  "prior": {
+    "model": "mock-prior-heavy",
+    "n": 400,
+    "overall_acc_before": 0.545,
+    "overall_acc_after": 0.7,
+    "rc_auc_naive(lower=better)": 0.3519932909006185,
+    "rc_auc_fmr(lower=better)": 0.12838440812792926,
+    "retained_acc@coverage": {
+      "0.3": {
+        "naive": 0.593103448275862,
+        "fmr": 0.9747899159663865
+      },
+      "0.5": {
+        "naive": 0.5590909090909091,
+        "fmr": 0.9072164948453608
+      },
+      "0.7": {
+        "naive": 0.5590909090909091,
+        "fmr": 0.7851851851851852
+      },
+      "0.9": {
+        "naive": 0.545,
+        "fmr": 0.7193460490463215
+      }
+    },
+    "coverage@retained_acc>=0.9": {
+      "naive": 0.0925,
+      "fmr": 0.485
+    },
+    "coverage@retained_acc>=0.95": {
+      "naive": 0.0475,
+      "fmr": 0.43
+    }
+  },
+  "mock": {
+    "model": "mock-reasoner",
+    "n": 400,
+    "overall_acc_before": 0.765,
+    "overall_acc_after": 0.76,
+    "rc_auc_naive(lower=better)": 0.06464082360331068,
+    "rc_auc_fmr(lower=better)": 0.07558157347667781,
+    "retained_acc@coverage": {
+      "0.3": {
+        "naive": 1.0,
+        "fmr": 1.0
+      },
+      "0.5": {
+        "naive": 0.9949748743718593,
+        "fmr": 0.97
+      },
+      "0.7": {
+        "naive": 0.9137254901960784,
+        "fmr": 0.8992248062015504
+      },
+      "0.9": {
+        "naive": 0.765,
+        "fmr": 0.7718832891246684
+      }
+    },
+    "coverage@retained_acc>=0.9": {
+      "naive": 0.6375,
+      "fmr": 0.5525
+    },
+    "coverage@retained_acc>=0.95": {
+      "naive": 0.4975,
+      "fmr": 0.5525
+    }
+  }
+}

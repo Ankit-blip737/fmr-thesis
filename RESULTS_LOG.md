@@ -131,3 +131,33 @@ learned>heuristic+0.05 under σ=0.5, save/load round-trip, weak-label-is-noisy).
 Full suite **42 passed** (2.89s). Artifacts: `fmr/results/verifier_benchmark.json`,
 `fmr/results/verifier_gbt.pkl(+.meta.json)`.
 
+### [B] 2026-07-03 — Correction shrinks the abstain set (fix #1 quantified)
+
+`scripts/correction_abstention_preview.py`: an *illustrative* selective-prediction
+comparison (NOT the conformal gate — Instance A owns `abstention/`). Same threshold
+sweep applied to two deferral signals: NAIVE = pre-correction FS + raw answer; FMR =
+post-correction FS + corrected answer. 400 synthetic samples.
+
+**Prior-dominated backend (`mock-prior-heavy`) — the headline:**
+- overall accuracy 0.545 → **0.700** after correction.
+- risk–coverage AUC (lower=better): naive **0.352 → FMR 0.128** (2.7× less risk
+  under selective prediction).
+- fraction answerable at **≥90%** retained accuracy: naive **9.3% → FMR 48.5%**
+  (**5.2×**); at ≥95%: **4.8% → 43%** (≈9×).
+- retained acc at 50% coverage: naive 0.56 → FMR 0.91.
+
+**Image-blind backend (`mock-reasoner`) — the honest flip side:**
+- accuracy 0.765 → 0.760 (flat); rc-AUC naive 0.065 vs FMR 0.076 (≈neutral,
+  marginally worse). Correct behaviour: when there is no image evidence to recover,
+  correction does not move the frontier — those cases stay deferred to the gate.
+  Correction helps the abstention curve *only where evidence exists*, which is
+  exactly its intended, narrow role.
+
+**Takeaway:** this is the quantified statement of external-review fix #1 —
+correction is supporting infrastructure that *shrinks what abstention must defer*
+(5× more cases safely answerable on the fixable pathology), not a co-equal
+contribution, and it is inert (not harmful) where nothing is fixable. Directly
+motivates the calibration-ordering handoff (fix #2): the gate must calibrate on the
+post-correction FS to capture this shifted frontier. Artifact:
+`fmr/results/correction_abstention_preview.json`.
+
