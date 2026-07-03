@@ -46,7 +46,7 @@ def run(out_dir: str, alpha: float, delta: float, post_correction: bool,
     weights = sig_cfg.get("weights")
     cons = sig_cfg.get("consistency", {})
 
-    vlm = resolve_vlm(cfg["models"])
+    vlm = resolve_vlm(cfg["models"], samples=splits["train"] + splits["cal"] + splits["test"])
     print(f"[fmr] scoring cal ({len(splits['cal'])}) + test ({len(splits['test'])}) "
           f"with {vlm.name} (n_consistency={cons.get('n_samples', 5)})")
 

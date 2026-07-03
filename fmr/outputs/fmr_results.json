@@ -19,16 +19,16 @@
     "delta": 0.05,
     "provisional_pre_correction": true,
     "fs": {
-      "threshold": 0.3715025102046905,
+      "threshold": 0.35521943740646683,
       "feasible": true,
-      "cal_coverage": 0.551,
-      "cal_error": 0.016333938294010888,
-      "cal_error_ucb": 0.04857816764472972,
+      "cal_coverage": 0.592,
+      "cal_error": 0.02195945945945946,
+      "cal_error_ucb": 0.04742620074493838,
       "test": {
-        "coverage": 0.551,
-        "n_retained": 551,
-        "retained_accuracy": 0.9836660617059891,
-        "retained_error": 0.016333938294010864
+        "coverage": 0.581,
+        "n_retained": 581,
+        "retained_accuracy": 0.9810671256454389,
+        "retained_error": 0.018932874354561147
       },
       "guarantee_holds": true,
       "aurc": 0.034071314247210216,
@@ -2041,16 +2041,16 @@
       }
     },
     "confidence": {
-      "threshold": 0.5626661793191982,
+      "threshold": 0.5050458194936521,
       "feasible": true,
-      "cal_coverage": 0.558,
-      "cal_error": 0.016129032258064516,
-      "cal_error_ucb": 0.0479787343068929,
+      "cal_coverage": 0.633,
+      "cal_error": 0.023696682464454975,
+      "cal_error_ucb": 0.048726499566710116,
       "test": {
-        "coverage": 0.549,
-        "n_retained": 549,
-        "retained_accuracy": 0.9927140255009107,
-        "retained_error": 0.007285974499089298
+        "coverage": 0.647,
+        "n_retained": 647,
+        "retained_accuracy": 0.9829984544049459,
+        "retained_error": 0.01700154559505407
       },
       "guarantee_holds": true,
       "aurc": 0.024251711053401712,
@@ -4063,16 +4063,16 @@
       }
     },
     "signal_a_only": {
-      "threshold": 0.5546180233597674,
+      "threshold": 0.557236683157802,
       "feasible": true,
-      "cal_coverage": 0.335,
-      "cal_error": 0.008955223880597015,
-      "cal_error_ucb": 0.04898809148135178,
+      "cal_coverage": 0.327,
+      "cal_error": 0.009174311926605505,
+      "cal_error_ucb": 0.03933605784451955,
       "test": {
-        "coverage": 0.348,
-        "n_retained": 348,
-        "retained_accuracy": 0.9827586206896551,
-        "retained_error": 0.017241379310344862
+        "coverage": 0.337,
+        "n_retained": 337,
+        "retained_accuracy": 0.9851632047477745,
+        "retained_error": 0.014836795252225476
       },
       "guarantee_holds": true,
       "aurc": 0.04395622127582814,

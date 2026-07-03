@@ -36,7 +36,7 @@ def run(split: str, out_dir: str, config_dir: str | None = None) -> dict:
     results: dict = {"dataset": cfg["data"].get("dataset"), "split": split, "n": len(eval_set), "models": {}}
 
     for key in model_keys:
-        vlm = resolve_vlm(cfg["models"], key)
+        vlm = resolve_vlm(cfg["models"], key, samples=eval_set)
         acc = {}
         flips = {"blank": [], "mismatch": []}
         outputs_orig = []

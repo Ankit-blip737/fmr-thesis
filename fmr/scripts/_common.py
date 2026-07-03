@@ -39,9 +39,15 @@ def resolve_dataset_and_splits(data_cfg: dict) -> tuple[list, dict[str, list]]:
     return samples, splits
 
 
-def resolve_vlm(models_cfg: dict, key: str | None = None) -> Any:
+def resolve_vlm(models_cfg: dict, key: str | None = None, samples: list | None = None) -> Any:
     key = key or models_cfg.get("model", "mock_reasoner")
-    return load_vlm(dict(models_cfg[key]))
+    vlm = load_vlm(dict(models_cfg[key]))
+    # Real HF backends need a pool of images to build the 'mismatch' variant.
+    if samples and hasattr(vlm, "set_mismatch_pool"):
+        pool = [s.image for s in samples if s.image is not None][:64]
+        if pool:
+            vlm.set_mismatch_pool(pool)
+    return vlm
 
 
 def accuracy(pairs: list[tuple[str, str]]) -> float:

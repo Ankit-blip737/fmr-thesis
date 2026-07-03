@@ -21,7 +21,7 @@ def run(models: list[str], split: str, out_dir: str, config_dir: str | None = No
 
     results: dict = {"dataset": cfg["data"].get("dataset"), "split": split, "n": len(eval_set), "models": {}}
     for key in models:
-        vlm = resolve_vlm(cfg["models"], key)
+        vlm = resolve_vlm(cfg["models"], key, samples=eval_set)
         per_mod: dict[str, list[int]] = defaultdict(list)
         correct = []
         for s in eval_set:

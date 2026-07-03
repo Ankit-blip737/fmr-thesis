@@ -53,14 +53,29 @@ def calibrate_threshold(
     correct: np.ndarray,
     alpha: float = 0.05,
     delta: float = 0.05,
+    max_candidates: int = 50,
 ) -> CalibrationResult:
-    """Pick the max-coverage threshold whose certified retained error <= alpha."""
+    """Pick the max-coverage threshold whose certified retained error <= alpha.
+
+    Candidate thresholds are restricted to a quantile grid of at most
+    ``max_candidates`` values. The guarantee holds over this finite candidate
+    set, and the smaller set makes the Bonferroni correction far less
+    conservative — which is what keeps the bound feasible on small real
+    calibration sets (e.g. VQA-RAD/SLAKE, a few hundred items). With many
+    unique continuous scores, per-threshold Bonferroni over *all* of them would
+    demand near-zero retained errors and force abstain-all.
+    """
     scores = np.asarray(scores, dtype=float)
     correct = np.asarray(correct, dtype=int)
     n = len(scores)
     assert n == len(correct) and n > 0
 
-    candidates = np.unique(scores)  # thresholds worth trying
+    uniq = np.unique(scores)
+    if len(uniq) > max_candidates:
+        qs = np.linspace(0.0, 1.0, max_candidates)
+        candidates = np.unique(np.quantile(uniq, qs))
+    else:
+        candidates = uniq
     m = len(candidates)
     confidence = 1.0 - delta / m    # Bonferroni across candidate thresholds
 
