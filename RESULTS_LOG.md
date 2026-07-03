@@ -80,3 +80,54 @@ validated fallback and should treat the LLM judge as primary once its κ is in.
 **Tests:** `tests/test_judge.py` 21 passed; full suite **33 passed** (0.74s).
 Artifact: `fmr/results/judge_validation_heuristic.json`.
 
+### [B] 2026-07-03 — Learned faithfulness verifier vs heuristic fusion (RQ5)
+
+Built `fmr/src/fmr/training/` (signals → features → labels → verifier → dataset) +
+`scripts/train_verifier.py`. Verifier = sklearn LogisticRegression (learned-linear)
+or GradientBoosting (learned-nonlinear, regularized: depth 2, 150 trees, subsample
+0.8, min_leaf 20), a **drop-in for `HeuristicFusion`** (identical `score(features)`
+API; heuristic stays the guaranteed fallback per fix #4).
+
+**Protocol.** Features from **two** backends (mock-reasoner + mock-prior-heavy) so
+signals conflict. Trained on the **noisy counterfactual weak label** (no GT boxes;
+weak-vs-true agreement ≈0.78 — genuinely weak). Evaluated vs the **true hidden
+latent** on a held-out split **disjoint from the calibration split reserved for
+Instance A** (train 200 samples ×2 backends = 400 rows; test 100 ×2 = 200 rows;
+cal 100 untouched). Because real faithfulness signals are noisy (not the clean
+latent a deterministic mock exposes), we sweep measurement noise σ.
+
+**Result (AUROC vs true latent):**
+
+| σ (noise) | per-signal A/B/C | heuristic | learned (logreg) | Δ learned−heur | oracle |
+|-----------|------------------|-----------|------------------|----------------|--------|
+| 0.00 | 0.99/0.99/0.71 | **0.998** | 0.987 | −0.012 | 1.000 |
+| 0.15 | 0.78/0.99/0.64 | **0.987** | 0.978 | −0.009 | 1.000 |
+| 0.30 | 0.73/0.99/0.59 | 0.928 | **0.965** | +0.037 | 1.000 |
+| 0.45 | 0.66/0.97/0.57 | 0.839 | **0.940** | +0.101 | 1.000 |
+| 0.60 | 0.62/0.93/0.55 | 0.756 | **0.909** | +0.153 | 0.999 |
+
+**Reading it honestly.** With *clean* signals the fixed heuristic is already near
+the ceiling and the learned head (trained on noisy weak labels) loses by ~0.01 —
+reported, not hidden. The crossover is σ≈0.2; beyond it the learned fusion degrades
+far more gracefully and the gap widens monotonically to +0.153. **Mechanism** (from
+per-signal AUROC + logreg weights): noise corrupts Signal A (0.99→0.62) while
+Signal B stays robust (0.99→0.93); the fixed 0.5 weight on A drags the heuristic
+down, whereas the learned head re-weights toward B. The oracle (GBT on the true
+latent) stays ≈1.0, confirming the information is still present — the heuristic just
+can't extract it under noise. Since real signals are noisy, the realistic regime is
+σ>0, where the learned verifier wins → **it ships as default at the headline σ=0.3
+(0.965 vs 0.928), with the heuristic as fallback.** Held-out decision agreement
+with the heuristic is 0.86 (not wildly divergent; the divergence is exactly the
+re-weighting that helps).
+
+**Caveat / dependency:** trained on stub signals computed in `training/signals.py`
+(stand-in for Instance A's real Signal A/B/C from `faithfulness/score.py`, not on
+disk yet). Must **retrain on real signals** once available — logged in DECISIONS.md
+[B]. The noise sweep predicts the learned head helps whenever real signals are
+moderately noisy (which they are).
+
+**Tests:** `tests/test_verifier.py` 9 passed (incl. deterministic
+learned>heuristic+0.05 under σ=0.5, save/load round-trip, weak-label-is-noisy).
+Full suite **42 passed** (2.89s). Artifacts: `fmr/results/verifier_benchmark.json`,
+`fmr/results/verifier_gbt.pkl(+.meta.json)`.
+

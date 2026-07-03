@@ -1,0 +1,33 @@
+{
+  "model_kind": "gbt",
+  "keys": [
+    "sig_a_counterfactual",
+    "sig_b_grounding",
+    "sig_c_consistency",
+    "a_flip_rate",
+    "a_js",
+    "b_iou_max",
+    "b_iou_first",
+    "b_iou_last",
+    "b_iou_slope",
+    "c_answer_consistency",
+    "c_region_consistency",
+    "aux_answer_margin",
+    "aux_n_steps"
+  ],
+  "importance": {
+    "sig_a_counterfactual": 3.8422317676967477e-16,
+    "sig_b_grounding": 3.2764985576547866e-16,
+    "sig_c_consistency": 1.0845200717716167e-16,
+    "a_flip_rate": 0.9999999999999984,
+    "a_js": 3.867665991845693e-16,
+    "b_iou_max": 0.0,
+    "b_iou_first": 0.0,
+    "b_iou_last": 1.831026435694633e-16,
+    "b_iou_slope": 4.1514834089843916e-17,
+    "c_answer_consistency": 0.0,
+    "c_region_consistency": 0.0,
+    "aux_answer_margin": 1.7185929027745293e-16,
+    "aux_n_steps": 0.0
+  }
+}
