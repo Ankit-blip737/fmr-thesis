@@ -58,6 +58,24 @@ python fmr/scripts/make_figures.py      # regenerate all figures from the JSON a
 Outputs (JSON + figures) land in `fmr/outputs/`. Every figure is reproducible from
 the saved JSON alone.
 
+## Dashboard (the demoable final output)
+
+A self-contained, dependency-free dashboard visualizes the whole story — the
+diagnosis (grounding drift + blind test + replication verdict), the multi-signal
+Faithfulness Score, the calibrated abstention gate (risk–coverage + guarantee), an
+interactive per-case explorer (reasoning chain + signals + ANSWER/ABSTAIN
+decision), and the robustness ablations.
+
+```bash
+python fmr/scripts/make_dashboard.py    # bundle all outputs -> fmr/dashboard/data.js
+# then just open fmr/dashboard/index.html  (works from file:// — no server needed)
+```
+
+It reads a generated `data.js` (so there are no CDN or fetch dependencies) and
+shows a **MOCK / REAL** source picker. It updates automatically when a Colab run
+pushes real results — `run_real.py` rebuilds and pushes `data.js` each time. Host
+it anywhere static (GitHub Pages, Netlify) or demo it straight from a local file.
+
 ## Real models (GPU / Colab)
 
 Open `fmr/notebooks/colab_real_pipeline.ipynb` in Colab (GPU runtime), set the

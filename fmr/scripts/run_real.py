@@ -95,6 +95,11 @@ def main() -> None:
         if not args.push:
             return
         try:
+            import make_dashboard          # rebuild the dashboard bundle from all
+            make_dashboard.build()          # current outputs (mock + real) before push
+        except Exception as exc:
+            print(f"[run_real] dashboard rebuild before {stage} failed (non-fatal): {exc}")
+        try:
             from push_results import push
             push(out, message=f"[A] real results ({stage}): {args.dataset} "
                               f"({args.reasoning} vs {args.non_reasoning})")

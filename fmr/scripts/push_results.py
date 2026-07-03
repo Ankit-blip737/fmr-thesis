@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-from pathlib import Path
+from pathlib import Path  # noqa: F401 (used in push())
 
 REPO = "github.com/Ankit-blip737/fmr-thesis.git"
 
@@ -25,7 +25,10 @@ def push(paths: str | list[str], message: str, branch: str = "master") -> None:
     _run(["git", "config", "user.email", "fmr-bot@colab"])
     _run(["git", "config", "user.name", "FMR Colab Runner (A)"])
 
-    _run(["git", "add", *paths, "RESULTS_LOG.md", "BLOCKERS.md", "DECISIONS.md"])
+    # Include the regenerated dashboard bundle so the hosted dashboard tracks
+    # real results automatically (best-effort — fine if it isn't present).
+    extra = [p for p in ("fmr/dashboard/data.js",) if Path(p).exists()]
+    _run(["git", "add", *paths, *extra, "RESULTS_LOG.md", "BLOCKERS.md", "DECISIONS.md"])
     status = _run(["git", "status", "--porcelain"])
     if not status:
         print("[push] nothing to commit")

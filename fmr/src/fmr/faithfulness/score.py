@@ -105,6 +105,11 @@ def compute_faithfulness(
     return {
         "sample_id": sample.sample_id,
         "modality": sample.modality,
+        # Additive fields (safe for the verifier contract) used by the dashboard's
+        # per-case explorer to show the actual question + reasoning chain.
+        "question": sample.question,
+        "gt_answer": sample.answer,
+        "steps_text": [s.text for s in output.steps],
         "answer": output.answer,
         "correct": int(output.answer == sample.answer),
         "signal_a": float(a),
