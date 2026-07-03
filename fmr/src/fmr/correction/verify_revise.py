@@ -11,6 +11,7 @@ with a clear margin; a low-margin flip is treated as contrast noise.
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Optional, Sequence
 
 from ..types import Sample, VLMOutput
 from .clue_tracing import ClueTrace, clue_support
@@ -29,16 +30,23 @@ def verify_and_revise(
     vcd_res: VCDResult,
     support_threshold: float = 0.25,
     vcd_margin: float = 0.25,
+    supports: Optional[Sequence[float]] = None,
 ) -> tuple[VLMOutput, dict]:
     """Return (revised output, diagnostics). ``output`` is not mutated.
 
-    * Steps with clue-support >= ``support_threshold`` are kept (``supported=True``).
+    * Steps with support >= ``support_threshold`` are kept (``supported=True``).
     * Unsupported steps are dropped from the revised rationale (counted in meta).
     * Answer: VCD's answer iff it changed with margin >= ``vcd_margin``; else the
       original. ``answer_logits`` always become the VCD-corrected distribution so
       downstream (re)scoring sees the corrected system's distribution.
+
+    ``supports`` lets a caller inject a per-step support vector (used by the
+    component ablation to swap the support *source* — e.g. clue-tracing vs a
+    no-trace self-consistency baseline). When ``None`` it defaults to clue-support
+    against ``trace`` (the production behaviour).
     """
-    supports = [clue_support(s, trace) for s in output.steps]
+    if supports is None:
+        supports = [clue_support(s, trace) for s in output.steps]
     kept = [
         replace(s, supported=True)
         for s, sup in zip(output.steps, supports)

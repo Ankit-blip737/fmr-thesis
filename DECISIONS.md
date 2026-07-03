@@ -136,6 +136,26 @@ entry; append corrections as new entries.
   scalar (+ `signal_c_vote`) — I map `c_region_consistency` to `signal_c_vote`;
   fine, but if A later splits C into answer/region components, update that mapping.
 
+- **[B] 2026-07-03 — HOLD on wiring the adapter's real-data path (per user
+  instruction 2026-07-03).** `training/adapter.py` is built and unit-tested against
+  a hand-constructed record matching Instance A's documented `score.py` schema, but
+  it is **not** wired into any live path: `train_verifier.py` still uses the
+  `training.signals` STUB via `build_feature_frame`, and nothing imports A's module
+  or runs `frame_from_records` on real `score_dataset` output. I will NOT flip the
+  verifier's feature source to real signals until the user confirms A's
+  `faithfulness/score.py` (Signals A/B/C) is actually on `master` and merged in.
+  **Readiness:** the swap is a one-liner
+  (`frame_from_records(score.score_dataset(vlm, samples))`) and the adapter tests
+  already prove the mapping; awaiting go-ahead. (I did observe those files in
+  `git show master:...` this session, but treating that as unconfirmed per the
+  instruction — flagging, not wiring.)
+
+- **[B] 2026-07-03 — Correction component ablation adds an injectable `supports`
+  vector to `verify_and_revise`.** Backward-compatible (defaults to clue-support
+  when `supports=None`), so the committed pipeline and all tests are unchanged. It
+  exists so `scripts/ablate_correction.py` can swap the support *source*
+  (clue-tracing vs no-trace self-consistency) to attribute the ablation.
+
 - **[B] 2026-07-03 — Concrete calibration-ordering integration (fix #2, upgraded).**
   Added `correction.post_correction_fs(vlm, sample, corrected, *, attention_fn=,
   consistency_c=, fuse_fn=)` — the *fused* post-correction FS the gate should

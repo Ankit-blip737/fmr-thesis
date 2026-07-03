@@ -117,6 +117,20 @@ def test_verify_and_revise_answer_policy_conservative(mock, samples):
     assert revised.answer == vcd_res.original_answer
 
 
+def test_verify_and_revise_accepts_injected_supports(mock, samples):
+    """Ablation hook: an injected support vector overrides clue-support, keeping
+    exactly the steps at/above threshold."""
+    s = samples[0]
+    vcd_res = vcd_answer(mock, s)
+    tr = trace_clue_region(mock, s, n_probes=3)
+    orig = vcd_res.outputs["original"]
+    supports = [0.9 if i % 2 == 0 else 0.0 for i in range(len(orig.steps))]
+    revised, diag = verify_and_revise(s, orig, tr, vcd_res, support_threshold=0.5,
+                                      vcd_margin=float("inf"), supports=supports)
+    assert diag["n_kept"] == sum(x >= 0.5 for x in supports)
+    assert diag["supports"] == supports
+
+
 # ---------- rescore ----------------------------------------------------------
 
 def test_rescore_shape_matches_signal_a(mock, samples):

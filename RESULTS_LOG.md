@@ -228,3 +228,51 @@ touching their files or my branch's standalone-ness:
 
 Full suite now **56 passed** (4.90s).
 
+### [B] 2026-07-03 — Per-component correction ablation (proposal Section 9)
+
+`scripts/ablate_correction.py` decomposes correction into its three primitives on
+the same flagged (low-FS) samples, so the gain is *attributed*, not just reported.
+Rows add one component at a time; `verify_and_revise` gained an injectable
+`supports` vector so the support *source* can be swapped (clue-tracing vs a
+no-trace single-chain self-consistency baseline). 400 synthetic samples.
+
+**`mock-prior-heavy` (VCD's target pathology; flagged=393, holdout=7):**
+
+| config | acc | step_support | keep_frac | fs_after | regr_broken |
+|--------|-----|--------------|-----------|----------|-------------|
+| baseline | 0.537 | 0.260 | 1.000 | 0.017 | 0 |
+| +VCD | **0.695** | 0.260 | 1.000 | 0.157 | 0 |
+| +Verify(noclue) | 0.537 | **0.529** | 0.290 | 0.017 | 0 |
+| +Verify+Clue | 0.537 | **0.551** | 0.298 | 0.017 | 0 |
+| Full | **0.695** | **0.551** | 0.298 | 0.157 | 0 |
+
+**`mock-reasoner` (image-blind pathology; flagged=265, holdout=135):**
+
+| config | acc | step_support | keep_frac | fs_after | regr_broken |
+|--------|-----|--------------|-----------|----------|-------------|
+| baseline | 0.645 | 0.186 | 1.000 | 0.093 | 0 |
+| +VCD | 0.638 | 0.186 | 1.000 | 0.158 | 0 |
+| +Verify(noclue) | 0.645 | 0.422 | 0.250 | 0.093 | 0 |
+| +Verify+Clue | 0.645 | 0.385 | 0.279 | 0.093 | 0 |
+| Full | 0.638 | 0.385 | 0.279 | 0.158 | 0 |
+
+**Attribution (the point of the table):**
+- **VCD owns answer accuracy:** +15.8 pts on the prior-dominated pathology
+  (0.537→0.695), ≈0 (−0.007) on image-blind — nothing to recover when no image
+  evidence exists, and it never touches the rationale (step_support flat).
+- **Verify-revise owns rationale faithfulness:** step-support rate ~doubles
+  (0.260→0.529 prior; 0.186→0.422 mock) by dropping ungrounded steps to
+  keep_frac≈0.29. Answer unchanged (it only edits the rationale).
+- **Clue-tracing improves the support source** on the fixable pathology
+  (0.529→0.551) — modest but real vs the no-trace baseline. Honest wrinkle: on the
+  image-blind model it is ≈neutral/slightly worse (0.422→0.385), because when
+  almost no step is grounded, multi-chain tracing scatters and the single-chain
+  self-consistency baseline is no worse — consistent with clue-tracing helping only
+  where evidence exists.
+- **Safety:** 0 correct answers broken in *every* config on the well-grounded
+  holdout (135 for mock; prior holdout is only 7 because that model is low-FS
+  almost everywhere — the mock's 135 is the stronger safety signal).
+
+**Verification:** `verify_and_revise` `supports`-injection unit test added; full
+suite **57 passed** (3.76s). Artifact: `fmr/results/correction_ablation.json`.
+
