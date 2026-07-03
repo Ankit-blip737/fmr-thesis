@@ -1,0 +1,12 @@
+# Learned faithfulness verifier (Instance B, RQ5).
+# Consumed by scripts/train_verifier.py (CLI flags override these).
+verifier:
+  n_samples: 400          # synthetic dataset size
+  n_chains: 4             # self-consistency (Signal C) samples per item
+  seed: 7
+  noise_sweep: [0.0, 0.15, 0.3, 0.45, 0.6]   # measurement-noise levels to benchmark
+  headline_noise: 0.3     # noise level at which the ship/keep decision is made
+  margin: 0.01            # AUROC margin the learned head must clear to ship as default
+  model_kind: gbt         # persisted head: 'gbt' (nonlinear) or 'logreg' (linear)
+  # Heuristic fallback weights (must stay available per external-review fix #4).
+  heuristic_weights: {a: 0.5, b: 0.3, c: 0.2}

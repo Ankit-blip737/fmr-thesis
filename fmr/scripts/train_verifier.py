@@ -96,14 +96,34 @@ def run_at_noise(tr_samples, te_samples, vlms, noise, n_chains, seed, save_model
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=400)
-    ap.add_argument("--n-chains", type=int, default=4)
-    ap.add_argument("--seed", type=int, default=7)
-    ap.add_argument("--noise-sweep", default="0,0.15,0.3,0.45")
-    ap.add_argument("--headline-noise", type=float, default=0.3)
-    ap.add_argument("--margin", type=float, default=0.01)
+    ap.add_argument("--config", default=str(ROOT / "configs" / "verifier.yaml"),
+                    help="YAML defaults (CLI flags override); missing file is fine")
+    ap.add_argument("--n", type=int, default=None)
+    ap.add_argument("--n-chains", type=int, default=None)
+    ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument("--noise-sweep", default=None)
+    ap.add_argument("--headline-noise", type=float, default=None)
+    ap.add_argument("--margin", type=float, default=None)
     ap.add_argument("--out", default=str(ROOT / "results"))
     args = ap.parse_args()
+
+    # Resolve config defaults <- YAML, then apply any CLI overrides.
+    cfg = {}
+    if Path(args.config).exists():
+        from fmr.utils import load_config
+        cfg = load_config(args.config).get("verifier", {}) or {}
+    args.n = args.n if args.n is not None else int(cfg.get("n_samples", 400))
+    args.n_chains = args.n_chains if args.n_chains is not None else int(cfg.get("n_chains", 4))
+    args.seed = args.seed if args.seed is not None else int(cfg.get("seed", 7))
+    args.headline_noise = (args.headline_noise if args.headline_noise is not None
+                           else float(cfg.get("headline_noise", 0.3)))
+    args.margin = args.margin if args.margin is not None else float(cfg.get("margin", 0.01))
+    if args.noise_sweep is not None:
+        pass
+    elif cfg.get("noise_sweep"):
+        args.noise_sweep = ",".join(str(x) for x in cfg["noise_sweep"])
+    else:
+        args.noise_sweep = "0,0.15,0.3,0.45"
 
     samples = build_synthetic_dataset(n=args.n, seed=args.seed)
     parts = split_dataset(samples, fractions=(0.5, 0.25, 0.25), seed=13)
