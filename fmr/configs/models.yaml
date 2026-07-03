@@ -17,6 +17,19 @@ mock_plain:
   is_reasoning: false
   seed: 0
 
+# A second, behaviourally-distinct reasoning base model — different drift,
+# grounding/prior peaks, and seed — used for the model-agnosticism ablation
+# (FMR should work across bases, not just one). Stands in for a second real VLM.
+mock_reasoner_b:
+  backend: mock
+  name: mock-reasoner-b
+  is_reasoning: true
+  n_steps: 5
+  drift: 0.5
+  grounded_peak: 2.8
+  prior_peak: 1.8
+  seed: 101
+
 # Real backends (GPU only — run via notebooks/colab_*.ipynb, never locally).
 qwen25_vl_3b:
   backend: hf

@@ -1,0 +1,217 @@
+{
+  "dataset": "synthetic",
+  "alpha": 0.05,
+  "correction_present": false,
+  "models": {
+    "mock_reasoner": {
+      "model": "mock-reasoner",
+      "is_reasoning": true,
+      "n_cal": 1000,
+      "n_test": 1000,
+      "validation": {
+        "auroc_signal_a": 0.8188289460514463,
+        "auroc_signal_b": 0.739263337003303,
+        "auroc_signal_c": 0.7701471324191773,
+        "auroc_fs_A": 0.8188289460514463,
+        "auroc_fs_AB": 0.8207346611950757,
+        "auroc_fs_ABC": 0.8698348513662296,
+        "auroc_confidence": 0.8624321889700732
+      },
+      "abstention": {
+        "alpha": 0.05,
+        "delta": 0.05,
+        "correction_present": false,
+        "fs_post_correction": {
+          "threshold": 0.35521943740646683,
+          "feasible": true,
+          "cal_coverage": 0.592,
+          "test": {
+            "coverage": 0.581,
+            "n_retained": 581,
+            "retained_accuracy": 0.9810671256454389,
+            "retained_error": 0.018932874354561147
+          },
+          "aurc": 0.034071314247210216,
+          "guarantee_holds": true
+        },
+        "fs_pre_correction": {
+          "threshold": 0.35521943740646683,
+          "feasible": true,
+          "cal_coverage": 0.592,
+          "test": {
+            "coverage": 0.581,
+            "n_retained": 581,
+            "retained_accuracy": 0.9810671256454389,
+            "retained_error": 0.018932874354561147
+          },
+          "aurc": 0.034071314247210216,
+          "guarantee_holds": true
+        },
+        "confidence": {
+          "threshold": 0.5050458194936521,
+          "feasible": true,
+          "cal_coverage": 0.633,
+          "test": {
+            "coverage": 0.647,
+            "n_retained": 647,
+            "retained_accuracy": 0.9829984544049459,
+            "retained_error": 0.01700154559505407
+          },
+          "aurc": 0.024251711053401712,
+          "guarantee_holds": true
+        },
+        "signal_a_only": {
+          "threshold": 0.557236683157802,
+          "feasible": true,
+          "cal_coverage": 0.327,
+          "test": {
+            "coverage": 0.337,
+            "n_retained": 337,
+            "retained_accuracy": 0.9851632047477745,
+            "retained_error": 0.014836795252225476
+          },
+          "aurc": 0.04395622127582814,
+          "guarantee_holds": true
+        },
+        "signal_b_only": {
+          "threshold": Infinity,
+          "feasible": false,
+          "cal_coverage": 0.0,
+          "test": {
+            "coverage": 0.0,
+            "n_retained": 0,
+            "retained_accuracy": NaN,
+            "retained_error": NaN
+          },
+          "aurc": 0.07872276339595748,
+          "guarantee_holds": true
+        },
+        "signal_c_only": {
+          "threshold": Infinity,
+          "feasible": false,
+          "cal_coverage": 0.0,
+          "test": {
+            "coverage": 0.0,
+            "n_retained": 0,
+            "retained_accuracy": NaN,
+            "retained_error": NaN
+          },
+          "aurc": 0.04710234973722272,
+          "guarantee_holds": true
+        }
+      },
+      "correction_effect": {
+        "n_applied": 0,
+        "acc_before": 0.863,
+        "acc_after": 0.863,
+        "mean_fs_before": 0.3994887402329516,
+        "mean_fs_after": 0.3994887402329516
+      }
+    },
+    "mock_reasoner_b": {
+      "model": "mock-reasoner-b",
+      "is_reasoning": true,
+      "n_cal": 1000,
+      "n_test": 1000,
+      "validation": {
+        "auroc_signal_a": 0.8382624361925733,
+        "auroc_signal_b": 0.738522670403363,
+        "auroc_signal_c": 0.6371854669202283,
+        "auroc_fs_A": 0.8382624361925733,
+        "auroc_fs_AB": 0.8366009408467621,
+        "auroc_fs_ABC": 0.8366049444500051,
+        "auroc_confidence": 0.7208847963166851
+      },
+      "abstention": {
+        "alpha": 0.05,
+        "delta": 0.05,
+        "correction_present": false,
+        "fs_post_correction": {
+          "threshold": 0.39218615516560096,
+          "feasible": true,
+          "cal_coverage": 0.388,
+          "test": {
+            "coverage": 0.385,
+            "n_retained": 385,
+            "retained_accuracy": 0.974025974025974,
+            "retained_error": 0.025974025974025983
+          },
+          "aurc": 0.054564172656221634,
+          "guarantee_holds": true
+        },
+        "fs_pre_correction": {
+          "threshold": 0.39218615516560096,
+          "feasible": true,
+          "cal_coverage": 0.388,
+          "test": {
+            "coverage": 0.385,
+            "n_retained": 385,
+            "retained_accuracy": 0.974025974025974,
+            "retained_error": 0.025974025974025983
+          },
+          "aurc": 0.054564172656221634,
+          "guarantee_holds": true
+        },
+        "confidence": {
+          "threshold": 0.6829376257707489,
+          "feasible": true,
+          "cal_coverage": 0.266,
+          "test": {
+            "coverage": 0.244,
+            "n_retained": 244,
+            "retained_accuracy": 0.9877049180327869,
+            "retained_error": 0.012295081967213073
+          },
+          "aurc": 0.0639579764250793,
+          "guarantee_holds": true
+        },
+        "signal_a_only": {
+          "threshold": 0.5846972088883567,
+          "feasible": true,
+          "cal_coverage": 0.184,
+          "test": {
+            "coverage": 0.174,
+            "n_retained": 174,
+            "retained_accuracy": 0.9942528735632183,
+            "retained_error": 0.005747126436781658
+          },
+          "aurc": 0.0652970233522187,
+          "guarantee_holds": true
+        },
+        "signal_b_only": {
+          "threshold": Infinity,
+          "feasible": false,
+          "cal_coverage": 0.0,
+          "test": {
+            "coverage": 0.0,
+            "n_retained": 0,
+            "retained_accuracy": NaN,
+            "retained_error": NaN
+          },
+          "aurc": 0.11427093342296107,
+          "guarantee_holds": true
+        },
+        "signal_c_only": {
+          "threshold": Infinity,
+          "feasible": false,
+          "cal_coverage": 0.0,
+          "test": {
+            "coverage": 0.0,
+            "n_retained": 0,
+            "retained_accuracy": NaN,
+            "retained_error": NaN
+          },
+          "aurc": 0.1025302188919605,
+          "guarantee_holds": true
+        }
+      },
+      "correction_effect": {
+        "n_applied": 0,
+        "acc_before": 0.808,
+        "acc_after": 0.808,
+        "mean_fs_before": 0.3493278112909451,
+        "mean_fs_after": 0.3493278112909451
+      }
+    }
+  }
+}

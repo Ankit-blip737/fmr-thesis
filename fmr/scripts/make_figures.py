@@ -124,12 +124,58 @@ def fig_risk_coverage(results: dict, fig_dir: Path) -> None:
     plt.close(fig)
 
 
+def fig_incremental_fusion(full: dict, fig_dir: Path) -> None:
+    """Ablation: AUROC as signals are added A -> A+B -> A+B+C, per model."""
+    models = full["models"]
+    if not any(m.get("validation") for m in models.values()):
+        print("[figures] skip fig5: no validation labels")
+        return
+    stages = ["auroc_fs_A", "auroc_fs_AB", "auroc_fs_ABC"]
+    labels = ["A", "A+B", "A+B+C"]
+    fig, ax = plt.subplots(figsize=(6, 4))
+    for key, m in models.items():
+        v = m.get("validation", {})
+        if not v:
+            continue
+        ax.plot(labels, [v[s] for s in stages], "-o", label=m["model"])
+    ax.set_ylabel("AUROC vs grounding label")
+    ax.set_xlabel("Signals fused")
+    ax.set_title("Incremental fusion ablation")
+    ax.legend()
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(fig_dir / "fig5_incremental_fusion.png", dpi=150)
+    plt.close(fig)
+
+
+def fig_model_agnosticism(full: dict, fig_dir: Path) -> None:
+    """Deployed-gate coverage + retained error across base models (α line)."""
+    models = full["models"]
+    keys = list(models.keys())
+    cov = [models[k]["abstention"]["fs_post_correction"]["test"]["coverage"] for k in keys]
+    err = [models[k]["abstention"]["fs_post_correction"]["test"]["retained_error"] or 0.0 for k in keys]
+    x = np.arange(len(keys))
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.bar(x - 0.2, cov, 0.4, label="coverage")
+    ax.bar(x + 0.2, err, 0.4, label="retained error")
+    ax.axhline(full["alpha"], color="k", ls=":", label=f"α={full['alpha']}")
+    ax.set_xticks(x)
+    ax.set_xticklabels([models[k]["model"] for k in keys], rotation=15)
+    ax.set_title("Model-agnosticism: deployed gate across base models")
+    ax.legend()
+    ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(fig_dir / "fig6_model_agnosticism.png", dpi=150)
+    plt.close(fig)
+
+
 def main(out_dir: str) -> None:
     out = Path(out_dir)
     fig_dir = ensure_dir(out / "figures")
     blind = _load(out, "blind_test.json")
     results = _load(out, "fmr_results.json")
     records = _load(out, "fmr_records.json")
+    full = _load(out, "full_benchmark.json")
     if blind:
         fig_drift(blind, fig_dir)
         fig_blind(blind, fig_dir)
@@ -137,6 +183,9 @@ def main(out_dir: str) -> None:
         fig_signal_separation(records, fig_dir)
     if results:
         fig_risk_coverage(results, fig_dir)
+    if full:
+        fig_incremental_fusion(full, fig_dir)
+        fig_model_agnosticism(full, fig_dir)
     print(f"[figures] wrote figures to {fig_dir}")
 
 
