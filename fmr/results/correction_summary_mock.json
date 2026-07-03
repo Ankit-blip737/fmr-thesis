@@ -1,0 +1,35 @@
+{
+  "model": "mock-reasoner",
+  "n": 400,
+  "n_flagged": 265,
+  "trigger_threshold": 0.5,
+  "flagged": {
+    "acc_before": 0.6452830188679245,
+    "acc_after": 0.6377358490566037,
+    "fs_before_mean": 0.09307175985805938,
+    "fs_after_mean": 0.15836621504699747,
+    "answer_changed": 8,
+    "keep_frac_mean": 0.2792452830188679
+  },
+  "flagged_fixable(grounded latent)": {
+    "n": 61,
+    "acc_before": 1.0,
+    "acc_after": 1.0,
+    "fs_after_mean": 0.5396824991311684,
+    "recovers_gate": 0.9180327868852459
+  },
+  "flagged_image_blind(latent)": {
+    "n": 204,
+    "acc_before": 0.5392156862745098,
+    "acc_after": 0.5294117647058824,
+    "fs_after_mean": 0.044345169315946384,
+    "still_low_fs(->abstain)": 0.9607843137254902
+  },
+  "regression_check(forced on unflagged)": {
+    "n": 135,
+    "acc_before": 1.0,
+    "acc_after": 1.0,
+    "answers_changed": 0,
+    "correct_answers_broken": 0
+  }
+}

@@ -7,11 +7,13 @@ module and the abstention gate explicit and easy to test.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from .data.regions import Region
+if TYPE_CHECKING:  # break the types -> data -> synthetic -> types import cycle;
+    # Region is only referenced in (PEP 563 lazy) annotations here.
+    from .data.regions import Region
 
 
 @dataclass

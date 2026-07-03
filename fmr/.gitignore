@@ -1,0 +1,15 @@
+# Python caches / build artifacts (never commit)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Model weights / large downloads (fetched on GPU host, never in-repo)
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+
+# Note: results/ IS committed on purpose — GPU handoff notebooks push results
+# back to the branch (see BLOCKERS.md), and mock results are the audit trail.
