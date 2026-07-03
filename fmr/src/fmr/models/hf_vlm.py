@@ -40,14 +40,34 @@ class HFVLM:
         self._model = None
         self._processor = None
 
+    @staticmethod
+    def _patch_config_for_strict_hub() -> None:  # pragma: no cover
+        """Coerce None→True for bool config fields before hf_hub>=0.34 strict validation."""
+        try:
+            from transformers import configuration_utils
+            _BOOL_FIELDS = {"use_cache", "output_attentions", "output_hidden_states",
+                            "return_dict", "tie_word_embeddings", "is_decoder"}
+            _orig = configuration_utils.PretrainedConfig.__init__
+            def _patched(self_cfg, *a, **kw):
+                for f in _BOOL_FIELDS:
+                    if f in kw and kw[f] is None:
+                        kw[f] = True
+                _orig(self_cfg, *a, **kw)
+            if not getattr(_orig, "_fmr_patched", False):
+                configuration_utils.PretrainedConfig.__init__ = _patched
+                _patched._fmr_patched = True
+        except Exception:
+            pass
+
     def _ensure_loaded(self) -> None:  # pragma: no cover - requires weights
         if self._model is not None:
             return
         from transformers import AutoModelForVision2Seq, AutoProcessor
 
-        self._processor = AutoProcessor.from_pretrained(self.model_id)
+        self._patch_config_for_strict_hub()
+        self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
         self._model = AutoModelForVision2Seq.from_pretrained(
-            self.model_id, torch_dtype="auto", device_map=self.device
+            self.model_id, torch_dtype="auto", device_map=self.device, trust_remote_code=True
         )
 
     def generate(
