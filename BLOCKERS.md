@@ -52,26 +52,22 @@ Each entry: what's blocked · exactly what is needed · what happens once provid
   (2) `colab_stage4_correction_real.ipynb` — confirms Stage-4 gains on a real model;
   (3) `colab_faithfulness_lora.ipynb` — stretch, only after 1–2 land.
 
-- **[B] 2026-07-03 — MedGemma (`google/medgemma-4b-it`) access still gated (403).**
-  The real run got "Access to model google/medgemma-4b-it is restricted and you are
-  not in the authorized list" — accepting the license is not enough; Google
-  gates it behind a manual approval. *Need from you:* request access on the model
-  page and wait for approval (or tell me to drop MedGemma entirely). *Meanwhile:*
-  the correction notebook v2's second-model cross-check uses the **ungated**
-  `Qwen/Qwen2-VL-2B-Instruct`, so model-agnosticism is still demonstrated; MedGemma
-  runs automatically once approved (it's an optional block).
-
-- **[B] 2026-07-03 — ✅ Notebooks rebuilt after first runs; please RE-RUN two of
-  them.** (1) `colab_stage4_correction_real.ipynb` **v2** — now a `vcd_margin`
-  trade-off sweep (v1 found default correction slightly hurt real-model accuracy;
-  the sweep finds the safe margin) + ungated second model + hf_hub patch. (2)
-  `colab_faithfulness_lora.ipynb` **v2** — smaller distill set, data-driven target
-  selection (v1 would have picked 0 targets on real fs scale), hardened Trainer,
-  always-writes-diagnostic. `colab_judge_llm.ipynb` succeeded (κ=0.758) and does
-  **not** need re-running. Add secrets `HF_TOKEN` + `GITHUB_TOKEN`, Run All; both
-  push results/diagnostics back to `instance-b`.
+- **[B] 2026-07-03 — ✅ Notebooks ready to RE-RUN (MedGemma access now granted).**
+  (1) `colab_stage4_correction_real.ipynb` **v3** — runs the full `vcd_margin`
+  trade-off sweep on **both** `Qwen/Qwen2.5-VL-3B-Instruct` and
+  `google/medgemma-4b-it` (proper cross-model comparison; memory freed between
+  models). (2) `colab_faithfulness_lora.ipynb` **v2** — smaller distill set,
+  data-driven target selection, hardened Trainer, always-writes-diagnostic.
+  `colab_judge_llm.ipynb` already succeeded (κ=0.758) — no re-run needed. Add
+  secrets `HF_TOKEN` + `GITHUB_TOKEN`, Run All; both push results to `instance-b`.
 
 ## Resolved
+
+- **[2026-07-03] MedGemma (`google/medgemma-4b-it`) access GRANTED** (user
+  confirmed). The 403 gating is cleared; correction notebook v3 now runs the full
+  cross-model sweep on MedGemma as a first-class second model (no longer an
+  ungated-substitute / optional block).
+
 
 - **[2026-07-03 — audit by human assistant]** Corrected two misleading blocker entries above — notebooks do not yet exist; Instance B will build on next run. Mock correction pipeline verified working locally. Both worktrees confirmed up to date with their respective remotes.
 

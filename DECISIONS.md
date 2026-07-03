@@ -160,7 +160,11 @@ entry; append corrections as new entries.
   reports the *trade-off curve* per the proposal's risk table — not a single point.
   For real-model *inference* elsewhere, prefer `vcd_margin≈1.0` (conservative).
   Also: (a) second-model check switched from gated MedGemma to ungated
-  `Qwen/Qwen2-VL-2B-Instruct`; (b) LoRA distill-target selection switched from the
+  `Qwen/Qwen2-VL-2B-Instruct` — **superseded 2026-07-03**: MedGemma access was
+  granted, so correction notebook **v3** runs the full margin sweep on BOTH
+  Qwen2.5-VL-3B and MedGemma-4b-it as a first-class cross-model comparison
+  (memory freed between models via `RealAnswerVLM.free()`); (b) LoRA distill-target
+  selection switched from the
   absolute `keep_threshold=0.5` (mock-scale) to a **data-driven median of `fs_after`**
   because real fs≈0.26 would select zero targets — the committed
   `build_self_distillation_set` (absolute bar) is unchanged and still used for the
