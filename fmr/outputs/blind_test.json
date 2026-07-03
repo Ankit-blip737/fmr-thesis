@@ -1,0 +1,55 @@
+{
+  "dataset": "synthetic",
+  "split": "test",
+  "n": 1000,
+  "models": {
+    "mock_reasoner": {
+      "name": "mock-reasoner",
+      "is_reasoning": true,
+      "accuracy": {
+        "original": 0.863,
+        "blank": 0.332,
+        "mismatch": 0.344
+      },
+      "blind_gap": 0.5309999999999999,
+      "mismatch_gap": 0.519,
+      "flip_rate": {
+        "blank": 0.583,
+        "mismatch": 0.571
+      },
+      "iou_vs_step_index": {
+        "0": 0.3207661666300901,
+        "1": 0.28298111093317174,
+        "2": 0.26433375146602633,
+        "3": 0.21820917225445208
+      },
+      "signal_b_vs_step_index": {
+        "0": 0.15239239173375552,
+        "1": 0.14044953654376974,
+        "2": 0.13790338687473902,
+        "3": 0.12336853749028606
+      }
+    },
+    "mock_plain": {
+      "name": "mock-plain",
+      "is_reasoning": false,
+      "accuracy": {
+        "original": 0.863,
+        "blank": 0.332,
+        "mismatch": 0.344
+      },
+      "blind_gap": 0.5309999999999999,
+      "mismatch_gap": 0.519,
+      "flip_rate": {
+        "blank": 0.583,
+        "mismatch": 0.571
+      },
+      "iou_vs_step_index": {
+        "0": 0.3207661666300901
+      },
+      "signal_b_vs_step_index": {
+        "0": 0.5
+      }
+    }
+  }
+}

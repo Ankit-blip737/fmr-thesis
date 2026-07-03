@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fmr"
+version = "0.1.0"
+description = "Faithful Medical Reasoning — a training-free faithfulness verification & abstention layer for medical VLMs"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pyyaml",
+    "matplotlib",
+    "scikit-learn",
+]
+
+[project.optional-dependencies]
+real = [
+    "torch",
+    "transformers>=4.49",
+    "datasets",
+    "pillow",
+    "accelerate",
+    "qwen-vl-utils",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

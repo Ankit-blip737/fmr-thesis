@@ -58,3 +58,29 @@ def js_divergence(p: np.ndarray, q: np.ndarray, eps: float = 1e-12) -> float:
 
 def clip01(x: float) -> float:
     return float(min(1.0, max(0.0, x)))
+
+
+def ensure_dir(path: str | Path) -> Path:
+    p = Path(path)
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def save_json(obj: Any, path: str | Path) -> Path:
+    """JSON-dump with numpy-type coercion; returns the written path."""
+    import json
+
+    def _default(o: Any):
+        if isinstance(o, (np.integer,)):
+            return int(o)
+        if isinstance(o, (np.floating,)):
+            return float(o)
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        return str(o)
+
+    p = Path(path)
+    ensure_dir(p.parent)
+    with open(p, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, indent=2, default=_default)
+    return p

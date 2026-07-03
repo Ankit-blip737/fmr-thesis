@@ -1,0 +1,41 @@
+# Dataset selection + split policy.
+# `dataset` picks the active source; each named block below configures one loader.
+# Real datasets need their HF cache / root downloaded first (scripts/prepare_data.py).
+
+dataset: synthetic          # synthetic | vqa_rad | slake | pathvqa | omnimedvqa
+
+synthetic:
+  name: synthetic
+  # Large enough that the conformal calibration split (25% -> 1000) can certify
+  # alpha=0.05 with the finite-sample bound; see RESULTS_LOG.md Stage-5 entry.
+  n: 4000
+  grounded_fraction: 0.5
+  grid: 4
+  seed: 7
+
+vqa_rad:
+  name: vqa_rad
+  root: fmr/data_cache/vqa_rad    # filled by scripts/prepare_data.py
+
+slake:
+  name: slake
+  root: fmr/data_cache/slake
+  english_only: true
+
+pathvqa:
+  name: pathvqa
+  root: fmr/data_cache/pathvqa
+  max_samples: 3000               # sampled subset for compute (per proposal)
+
+omnimedvqa:
+  name: omnimedvqa
+  root: fmr/data_cache/omnimedvqa
+  max_samples: 2000
+
+split:
+  # train feeds Instance B's learned verifier; cal feeds the conformal gate;
+  # test is held out for all reported numbers. Keep these disjoint — audit note
+  # in DECISIONS.md.
+  fractions: [0.5, 0.25, 0.25]
+  holdout_modality: null          # e.g. "pathology" for the held-out-modality run
+  seed: 13
