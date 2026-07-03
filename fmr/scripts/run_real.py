@@ -90,14 +90,54 @@ def main() -> None:
 
     print(f"[run_real] dataset={args.dataset} reasoning={args.reasoning} "
           f"non_reasoning={args.non_reasoning} out={out}")
-    run_baselines.run([args.reasoning, args.non_reasoning], args.split, out, config_dir=str(cfg_dir))
-    run_blind_test.run(args.split, out, config_dir=str(cfg_dir))
-    run_fmr.run(out, alpha=args.alpha, delta=args.delta, post_correction=False, config_dir=str(cfg_dir))
-    make_figures.main(out)
 
-    if args.push:
-        from push_results import push
-        push(out, message=f"[A] real results: {args.dataset} ({args.reasoning} vs {args.non_reasoning})")
+    def _push(stage: str) -> None:
+        if not args.push:
+            return
+        try:
+            from push_results import push
+            push(out, message=f"[A] real results ({stage}): {args.dataset} "
+                              f"({args.reasoning} vs {args.non_reasoning})")
+        except Exception as exc:  # never let a push failure abort the run
+            print(f"[run_real] push after {stage} failed (non-fatal): {exc}")
+
+    # Each stage runs independently and pushes its own outputs the moment it
+    # succeeds. A CUDA OOM / timeout in a later (heavier) stage therefore cannot
+    # discard the results of an earlier one — critically, the blind-test HEADLINE
+    # (grounding-drift replication verdict) survives even if the full FMR stage
+    # dies. Stages are ordered cheapest -> heaviest for exactly this reason.
+    status: dict[str, str] = {}
+    stages = [
+        ("baselines", lambda: run_baselines.run(
+            [args.reasoning, args.non_reasoning], args.split, out, config_dir=str(cfg_dir))),
+        ("blind_test", lambda: run_blind_test.run(args.split, out, config_dir=str(cfg_dir))),
+        ("fmr", lambda: run_fmr.run(
+            out, alpha=args.alpha, delta=args.delta, post_correction=False, config_dir=str(cfg_dir))),
+    ]
+    for name, fn in stages:
+        try:
+            fn()
+            status[name] = "ok"
+        except Exception as exc:
+            import traceback
+            status[name] = f"FAILED: {type(exc).__name__}: {exc}"
+            print(f"[run_real] stage {name!r} FAILED (continuing): {exc}")
+            traceback.print_exc()
+        # Regenerate figures from whatever JSON exists so far, then push.
+        try:
+            make_figures.main(out)
+        except Exception as exc:
+            print(f"[run_real] make_figures after {name} failed (non-fatal): {exc}")
+        _push(name)
+
+    # Persist a machine-readable run status alongside the outputs.
+    from fmr.utils import save_json
+    save_json({"dataset": args.dataset, "reasoning": args.reasoning,
+               "non_reasoning": args.non_reasoning, "max_samples": args.max_samples,
+               "n_consistency": args.n_consistency, "status": status},
+              f"{out}/run_status.json")
+    _push("status")
+    print(f"[run_real] done. stage status: {status}")
 
 
 if __name__ == "__main__":
