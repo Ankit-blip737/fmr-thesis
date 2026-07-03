@@ -54,6 +54,34 @@ def test_vcd_plausibility_mask_blocks_implausible_promotion():
     assert p[1] == 0.0
 
 
+def test_vcd_contrast_robust_to_degenerate_distributions():
+    # NaN / all-zero / non-normalized inputs must never produce NaN output
+    # (real models — e.g. MedGemma fp16 choice-scoring — can emit these).
+    good = softmax(np.array([2.0, 0.5, 0.1]))
+    for bad in (np.array([np.nan, np.nan, np.nan]),
+                np.array([0.0, 0.0, 0.0]),
+                np.array([np.inf, 1.0, 0.0])):
+        out = vcd_contrast(bad, good)
+        assert np.all(np.isfinite(out)) and out.sum() == pytest.approx(1.0)
+        out2 = vcd_contrast(good, bad)          # degenerate distorted -> no-op
+        assert np.all(np.isfinite(out2)) and out2.sum() == pytest.approx(1.0)
+
+
+def test_vcd_answer_robust_to_degenerate_backend(samples):
+    """A backend that emits NaN answer distributions must yield a finite no-op,
+    not a NaN-poisoned VCDResult."""
+    from fmr.models import MockVLM
+
+    class NaNVLM(MockVLM):
+        def generate(self, sample, variant="original", temperature=0.0, draw=0):
+            out = super().generate(sample, variant, temperature, draw)
+            out.answer_logits = np.full_like(out.answer_logits, np.nan)
+            return out
+
+    res = vcd_answer(NaNVLM(), samples[0])
+    assert not res.changed and np.all(np.isfinite(res.p_vcd))
+
+
 # ---------- fixtures ---------------------------------------------------------
 
 @pytest.fixture(scope="module")

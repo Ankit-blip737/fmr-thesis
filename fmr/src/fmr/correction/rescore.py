@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
+import numpy as np
+
 from ..models.base_vlm import BaseVLM
 from ..types import Sample, VLMOutput
 from ..utils import clip01, js_divergence
@@ -37,11 +39,18 @@ def post_correction_sensitivity(
 
     flip = 0.5 * (corrected.answer != blank.answer) + 0.5 * (corrected.answer != mism.answer)
 
-    js = 0.0
-    if corrected.answer_logits is not None and blank.answer_logits is not None:
-        js_blank = js_divergence(corrected.answer_logits, blank.answer_logits)
-        js_mism = js_divergence(corrected.answer_logits, mism.answer_logits)
-        js = 0.5 * (js_blank + js_mism)
+    # JS terms only when all distributions are finite (real models can emit NaN);
+    # otherwise fall back to the flip signal alone rather than propagating NaN.
+    def _finite(x) -> bool:
+        return x is not None and bool(np.all(np.isfinite(np.asarray(x, dtype=float))))
+
+    js_terms = []
+    if _finite(corrected.answer_logits):
+        if _finite(blank.answer_logits):
+            js_terms.append(js_divergence(corrected.answer_logits, blank.answer_logits))
+        if _finite(mism.answer_logits):
+            js_terms.append(js_divergence(corrected.answer_logits, mism.answer_logits))
+    js = float(np.mean(js_terms)) if js_terms else 0.0
 
     sensitivity = clip01(0.5 * float(flip) + 0.5 * float(js))
     return {

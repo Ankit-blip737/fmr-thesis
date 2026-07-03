@@ -76,10 +76,11 @@ class HFVLM:
             return
         from transformers import AutoModelForVision2Seq, AutoProcessor
 
+        import torch
         self._patch_config_for_strict_hub()
         self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
         self._model = AutoModelForVision2Seq.from_pretrained(
-            self.model_id, torch_dtype="auto", device_map=self.device, trust_remote_code=True
+            self.model_id, torch_dtype=torch.bfloat16, device_map=self.device, trust_remote_code=True
         )
 
     def generate(
