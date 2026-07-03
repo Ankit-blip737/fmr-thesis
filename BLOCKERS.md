@@ -1,5 +1,15 @@
 # BLOCKERS.md — items needing the human (append-only within your tag; keep current)
 
+## ⭐ NEXT ACTION (Instance A) — the one thing to do
+
+**Run `fmr/notebooks/colab_real_pipeline.ipynb` on Colab (GPU runtime).** Set Colab
+secrets `HF_TOKEN` + `GH_TOKEN`, then Run all. It runs the whole pipeline on real
+models (MedVLM-R1 vs Qwen2.5-VL-3B) over VQA-RAD → PathVQA → SLAKE and auto-pushes
+results to `master`. That is the real-model test of the headline "more reasoning →
+less grounded" hypothesis and produces the real FS scores I'll wire into
+calibration on the next local resume. Nothing else in Instance A's scope is blocked
+— Stages 0–3, 5, 6 all run and are verified on the mock path (34 tests green).
+
 ## Open
 
 - **[A] No GPU on this machine (CPU-only torch 2.12.1).** All real-model inference is routed to Colab per the GPU handoff protocol. Local work uses MockVLM by design, not as a degradation.
