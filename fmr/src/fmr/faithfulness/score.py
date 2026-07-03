@@ -31,12 +31,34 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
 from ..models.base_vlm import BaseVLM
 from ..types import Sample
 from ..utils import clip01
 from .attention import attention_signal, iou_labels
 from .consistency import consistency_signal
 from .counterfactual import counterfactual_signal
+
+
+def _top2_margin(logits) -> float:
+    """Top-1 minus top-2 probability of the answer distribution (an easy
+    auxiliary the learned verifier uses; 1.0 when there is only one choice)."""
+    if logits is None:
+        return 0.5
+    a = np.sort(np.asarray(logits, dtype=float))[::-1]
+    return float(a[0] - a[1]) if a.size >= 2 else 1.0
+
+
+def _slope(vals: list[float]) -> float:
+    """Least-squares slope of a per-step sequence — the grounding-DRIFT feature
+    (negative slope = grounding decays along the chain, the thesis's effect)."""
+    n = len(vals)
+    if n < 2:
+        return 0.0
+    x = np.arange(n, dtype=float)
+    y = np.asarray(vals, dtype=float)
+    return float(np.polyfit(x, y, 1)[0])
 
 # Heuristic weights: A is the most direct probe of image dependence, B and C
 # corroborate. These are the *fallback* the learned verifier must beat.
@@ -78,6 +100,7 @@ def compute_faithfulness(
         step.fs = step_fs
 
     confidence = float(output.answer_logits.max()) if output.answer_logits is not None else 0.5
+    answer_margin = _top2_margin(output.answer_logits)
 
     return {
         "sample_id": sample.sample_id,
@@ -94,6 +117,7 @@ def compute_faithfulness(
         "fs": float(fs),
         "fs_per_step": fs_per_step,
         "confidence": confidence,
+        "answer_margin": answer_margin,
         "n_steps": len(output.steps),
         "iou_mean": iou["mean_iou"],
         "iou_per_step": iou["ious"],
@@ -121,3 +145,47 @@ def score_dataset(
         )
         for s in samples
     ]
+
+
+# Feature keys emitted for Instance B's learned verifier — matched exactly to
+# its training/signals.py schema so `build_feature_frame` can call
+# `features_for_verifier` directly (the promised one-line provider swap).
+VERIFIER_FEATURE_KEYS = (
+    "sig_a_counterfactual", "sig_b_grounding", "sig_c_consistency",
+    "a_flip_rate", "a_js", "b_iou_max", "b_iou_first", "b_iou_last",
+    "b_iou_slope", "c_answer_consistency", "c_region_consistency",
+    "aux_answer_margin", "aux_n_steps",
+)
+
+
+def features_for_verifier(record: dict[str, Any]) -> dict[str, float]:
+    """Map a ``compute_faithfulness`` record to the verifier's feature dict.
+
+    Per-step grounding uses the true IoU-vs-GT sequence where boxes exist
+    (``iou_per_step``) and falls back to the runtime attention-coherence
+    sequence (``signal_b_per_step``) elsewhere — so ``b_iou_*`` are real
+    grounding features on SLAKE/VQA-RAD/synthetic and coherence proxies on the
+    box-free datasets (reported as such, per review fix #3). ``b_iou_slope`` is
+    the grounding-drift feature — the thesis's central effect made explicit for
+    the learned head. ``c_region_consistency`` is not separately measured here;
+    it is set to ``signal_b`` (region-stability proxy) and flagged as such.
+    """
+    per_step = record.get("iou_per_step") or record.get("signal_b_per_step") or []
+    first = float(per_step[0]) if per_step else record["signal_b"]
+    last = float(per_step[-1]) if per_step else record["signal_b"]
+    mx = float(max(per_step)) if per_step else record["signal_b"]
+    return {
+        "sig_a_counterfactual": record["signal_a"],
+        "sig_b_grounding": record["signal_b"],
+        "sig_c_consistency": record["signal_c"],
+        "a_flip_rate": record["signal_a_flip"],
+        "a_js": record["signal_a_js"],
+        "b_iou_max": mx,
+        "b_iou_first": first,
+        "b_iou_last": last,
+        "b_iou_slope": _slope(per_step),
+        "c_answer_consistency": record["signal_c"],
+        "c_region_consistency": record["signal_b"],
+        "aux_answer_margin": record["answer_margin"],
+        "aux_n_steps": float(record["n_steps"]),
+    }

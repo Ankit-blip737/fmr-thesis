@@ -2,7 +2,13 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 
 from fmr.data.synthetic import build_synthetic_dataset
-from fmr.faithfulness import compute_faithfulness, decompose_rationale, score_dataset
+from fmr.faithfulness import (
+    VERIFIER_FEATURE_KEYS,
+    compute_faithfulness,
+    decompose_rationale,
+    features_for_verifier,
+    score_dataset,
+)
 from fmr.models.mock_vlm import MockVLM
 
 
@@ -56,6 +62,33 @@ def test_per_step_fs_written_back_to_steps():
     for step in rec["output"].steps:
         assert step.fs is not None and 0.0 <= step.fs <= 1.0
         assert step.attention_grounding is not None
+
+
+def test_verifier_feature_adapter():
+    """features_for_verifier must emit exactly Instance B's feature schema."""
+    rec = _records(n=4)[0]
+    feats = features_for_verifier(rec)
+    assert set(feats) == set(VERIFIER_FEATURE_KEYS)
+    for k, v in feats.items():
+        assert isinstance(v, float), f"{k} not float"
+    # Sanity: raw signals passed through unchanged.
+    assert feats["sig_a_counterfactual"] == rec["signal_a"]
+    assert feats["aux_n_steps"] == float(rec["n_steps"])
+
+
+def test_verifier_features_carry_signal():
+    """The adapted features must still separate grounded from ungrounded."""
+    recs = _records(n=300)
+    labels = [r["grounded_latent"] for r in recs]
+    feats = [features_for_verifier(r) for r in recs]
+    for key in ("sig_a_counterfactual", "sig_c_consistency"):
+        auc = roc_auc_score(labels, [f[key] for f in feats])
+        assert auc > 0.6, f"{key} lost signal in adapter (AUROC {auc:.3f})"
+
+
+def test_answer_margin_present():
+    rec = _records(n=4)[0]
+    assert "answer_margin" in rec and 0.0 <= rec["answer_margin"] <= 1.0
 
 
 def test_decompose_free_text():
