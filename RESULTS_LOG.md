@@ -276,6 +276,44 @@ no-trace single-chain self-consistency baseline). 400 synthetic samples.
 **Verification:** `verify_and_revise` `supports`-injection unit test added; full
 suite **57 passed** (3.76s). Artifact: `fmr/results/correction_ablation.json`.
 
+### [B] 2026-07-03 — FULL PROJECT INTEGRATION (merge master → instance-b) + real-signal RQ5
+
+**Merged Instance A's half into instance-b** so the whole FMR pipeline exists in one
+tree: A's Signals A/B/C, FS fusion (`score.py`), conformal abstention, real loaders,
+HF backend, `run_fmr_full` end-to-end harness, dashboard/figures — together with B's
+correction, learned verifier, judge, second VLM, LoRA. Conflicts resolved (types.py
+shared fix; hf_vlm→A's; logs concatenated). **Full combined suite: 93 passed.**
+
+**End-to-end pipeline runs (`scripts/run_fmr_full.py`, graded mock):** signals →
+fusion → **B's correction** → post-correction FS → conformal gate, all connected.
+- incremental fusion AUROC (mock_reasoner): A=0.819 → AB=0.821 → **ABC=0.870**.
+- **correction applied=706, acc 0.863→0.875 (+1.2pts), meanFS 0.399→0.545** — the real
+  correction path (not identity) runs and helps.
+- A's harness already wired B's `correct_sample(vlm, s, fs=record["fs"],
+  original=record["output"])` and calibrates the gate on the *post-correction* fused
+  FS — exactly the fix-#2 ordering I handed off. Integration confirmed both ways.
+
+**RQ5 on REAL signals — POSITIVE (`train_verifier.py --source real`).** Verifier trained
+on A's real `score_dataset` output via `training/adapter.py`, 400 samples × 2 backends:
+- heuristic fusion AUROC **0.768**; learned **GBT (weak labels) 0.816 (+0.048)**, logreg
+  0.801 (+0.033) → **LEARNED VERIFIER BEATS THE HEURISTIC on the real pipeline**, no
+  measurement noise needed. Oracle (true-label) 0.951 (headroom); weak-vs-true 0.77.
+- *Why it wins here but not on the stub:* A's real signals + A's IoU-based `weak_labels`
+  give the learned fusion real cross-signal structure the fixed weighting misses. **The
+  real-signal result is the headline** (`fmr/results/verifier_benchmark_real.json`).
+
+**Gate-feasibility finding (for [A]):** the deployed (post-correction FS) conformal gate
+is **infeasible at α=0.05** (correction inflates FS 0.40→0.55, decoupling FS from
+correctness at the strictest target) but **feasible at α≥0.10**; pre-correction gate is
+feasible at 0.05. Not a bug — a target choice; report the risk–coverage frontier and use
+α≈0.10 as headline. Logged in DECISIONS [B].
+
+**Refreshed graded-mock artifacts:** correction ablation — prior-heavy VCD +15.3pts
+(0.537→0.690), verify-revise ~doubles step-support (0.258→0.557), 0 correct broken;
+abstention preview — prior rc-AUC 0.351→0.132, answerable@≥90% acc 8.5%→48.3% (5.7×).
+
+---
+
 ### [B] 2026-07-03 — REAL-MODEL Colab runs: results + rectifications
 
 The user ran the three GPU notebooks. Outcomes and fixes:

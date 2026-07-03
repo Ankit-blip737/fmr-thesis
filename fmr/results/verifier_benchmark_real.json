@@ -1,0 +1,28 @@
+{
+  "source": "real (Instance A faithfulness.score)",
+  "backends": [
+    "mock-reasoner",
+    "mock-prior-heavy"
+  ],
+  "train_rows": 400,
+  "test_rows": 200,
+  "heuristic": {
+    "auroc": 0.767907162865146,
+    "auprc": 0.7704442970252039
+  },
+  "learned": {
+    "logreg_weak": {
+      "auroc": 0.8013205282112845,
+      "delta_vs_heuristic": 0.03341336534613848
+    },
+    "gbt_weak": {
+      "auroc": 0.8157262905162065,
+      "delta_vs_heuristic": 0.047819127651060445
+    }
+  },
+  "weak_vs_true_agreement(train)": 0.77,
+  "oracle_gbt_true_label": {
+    "auroc": 0.9509803921568627
+  },
+  "verdict": "LEARNED (weak) BEATS heuristic on real signals"
+}

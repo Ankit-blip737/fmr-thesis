@@ -94,8 +94,48 @@ def run_at_noise(tr_samples, te_samples, vlms, noise, n_chains, seed, save_model
     }
 
 
+def run_real_signals(parts, vlms, n_chains, seed, out_dir) -> dict:
+    """Train/eval the verifier on Instance A's REAL Signals A/B/C.
+
+    Uses `faithfulness.score.score_dataset` -> `training.adapter.frame_from_records`
+    -> the verifier, so the fusion runs on the true integrated signals (not the
+    `training.signals` stub). Reports heuristic vs learned(weak) vs oracle.
+    """
+    from fmr.faithfulness.score import score_dataset
+    from fmr.training import HeuristicFusion, LearnedVerifier
+    from fmr.training.adapter import frame_from_records
+
+    tr_recs, te_recs = [], []
+    for vlm in vlms:
+        tr_recs += score_dataset(vlm, parts["train"], n_consistency_samples=n_chains)
+        te_recs += score_dataset(vlm, parts["test"], n_consistency_samples=n_chains)
+    tr, te = frame_from_records(tr_recs), frame_from_records(te_recs)
+
+    heur = HeuristicFusion().score_batch(te["feats"])
+    heur_auroc, heur_auprc = _auc(te["y_true"], heur)
+    out = {"source": "real (Instance A faithfulness.score)",
+           "backends": [v.name for v in vlms],
+           "train_rows": int(tr["X"].shape[0]), "test_rows": int(te["X"].shape[0]),
+           "heuristic": {"auroc": heur_auroc, "auprc": heur_auprc},
+           "learned": {}, "weak_vs_true_agreement(train)": float(np.mean(tr["y_weak"] == tr["y_true"]))}
+    for kind in ("logreg", "gbt"):
+        vw = LearnedVerifier(kind).fit(tr["X"], tr["y_weak"], seed=seed).score_batch(te["feats"])
+        out["learned"][f"{kind}_weak"] = {"auroc": _auc(te["y_true"], vw)[0],
+                                          "delta_vs_heuristic": _auc(te["y_true"], vw)[0] - heur_auroc}
+    oracle = LearnedVerifier("gbt").fit(tr["X"], tr["y_true"], seed=seed).score_batch(te["feats"])
+    out["oracle_gbt_true_label"] = {"auroc": _auc(te["y_true"], oracle)[0]}
+    best = max((out["learned"][k]["auroc"] for k in out["learned"]))
+    out["verdict"] = ("LEARNED (weak) BEATS heuristic on real signals" if best > heur_auroc
+                      else "heuristic retained on real signals (honest)")
+    (Path(out_dir) / "verifier_benchmark_real.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    print(json.dumps(out, indent=2))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--source", choices=["stub", "real"], default="stub",
+                    help="'real' trains on Instance A's faithfulness.score signals via the adapter")
     ap.add_argument("--config", default=str(ROOT / "configs" / "verifier.yaml"),
                     help="YAML defaults (CLI flags override); missing file is fine")
     ap.add_argument("--n", type=int, default=None)
@@ -130,6 +170,11 @@ def main() -> int:
     vlms = [MockVLM(), PriorHeavyMockVLM()]
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.source == "real":
+        print("=== Verifier on Instance A's REAL signals (faithfulness.score) ===")
+        run_real_signals(parts, vlms, args.n_chains, args.seed, out_dir)
+        return 0
 
     noises = [float(x) for x in args.noise_sweep.split(",")]
     if args.headline_noise not in noises:

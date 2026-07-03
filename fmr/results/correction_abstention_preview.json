@@ -3,68 +3,68 @@
     "model": "mock-prior-heavy",
     "n": 400,
     "overall_acc_before": 0.545,
-    "overall_acc_after": 0.7,
-    "rc_auc_naive(lower=better)": 0.3519932909006185,
-    "rc_auc_fmr(lower=better)": 0.12838440812792926,
+    "overall_acc_after": 0.695,
+    "rc_auc_naive(lower=better)": 0.3507785431871008,
+    "rc_auc_fmr(lower=better)": 0.13237757933081976,
     "retained_acc@coverage": {
       "0.3": {
-        "naive": 0.593103448275862,
-        "fmr": 0.9747899159663865
+        "naive": 0.5957446808510638,
+        "fmr": 0.9743589743589743
       },
       "0.5": {
         "naive": 0.5590909090909091,
-        "fmr": 0.9072164948453608
+        "fmr": 0.9015544041450777
       },
       "0.7": {
         "naive": 0.5590909090909091,
-        "fmr": 0.7851851851851852
+        "fmr": 0.7835820895522388
       },
       "0.9": {
         "naive": 0.545,
-        "fmr": 0.7193460490463215
+        "fmr": 0.7138964577656676
       }
     },
     "coverage@retained_acc>=0.9": {
-      "naive": 0.0925,
-      "fmr": 0.485
+      "naive": 0.085,
+      "fmr": 0.4825
     },
     "coverage@retained_acc>=0.95": {
-      "naive": 0.0475,
-      "fmr": 0.43
+      "naive": 0.085,
+      "fmr": 0.425
     }
   },
   "mock": {
     "model": "mock-reasoner",
     "n": 400,
-    "overall_acc_before": 0.765,
-    "overall_acc_after": 0.76,
-    "rc_auc_naive(lower=better)": 0.06464082360331068,
-    "rc_auc_fmr(lower=better)": 0.07558157347667781,
+    "overall_acc_before": 0.875,
+    "overall_acc_after": 0.8875,
+    "rc_auc_naive(lower=better)": 0.04000665311681691,
+    "rc_auc_fmr(lower=better)": 0.05608831098987434,
     "retained_acc@coverage": {
       "0.3": {
         "naive": 1.0,
-        "fmr": 1.0
+        "fmr": 0.9453125
       },
       "0.5": {
-        "naive": 0.9949748743718593,
-        "fmr": 0.97
+        "naive": 0.96,
+        "fmr": 0.9261083743842364
       },
       "0.7": {
-        "naive": 0.9137254901960784,
-        "fmr": 0.8992248062015504
+        "naive": 0.9354838709677419,
+        "fmr": 0.9321428571428572
       },
       "0.9": {
-        "naive": 0.765,
-        "fmr": 0.7718832891246684
+        "naive": 0.8906666666666667,
+        "fmr": 0.9138888888888889
       }
     },
     "coverage@retained_acc>=0.9": {
-      "naive": 0.6375,
-      "fmr": 0.5525
+      "naive": 0.8625,
+      "fmr": 0.9425
     },
     "coverage@retained_acc>=0.95": {
-      "naive": 0.4975,
-      "fmr": 0.5525
+      "naive": 0.6625,
+      "fmr": 0.275
     }
   }
 }

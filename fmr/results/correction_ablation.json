@@ -1,43 +1,43 @@
 {
   "mock-reasoner": {
     "model": "mock-reasoner",
-    "n_flagged": 265,
-    "n_wellgrounded_holdout": 135,
+    "n_flagged": 236,
+    "n_wellgrounded_holdout": 105,
     "configs": {
       "baseline": {
-        "acc": 0.6452830188679245,
-        "step_support_rate": 0.18584905660377357,
+        "acc": 0.8220338983050848,
+        "step_support_rate": 0.2690677966101695,
         "keep_frac": 1.0,
-        "fs_after": 0.09307175985805938,
+        "fs_after": 0.1863901992146336,
         "regr_broken": 0
       },
       "+VCD": {
-        "acc": 0.6377358490566037,
-        "step_support_rate": 0.18584905660377357,
+        "acc": 0.8432203389830508,
+        "step_support_rate": 0.2690677966101695,
         "keep_frac": 1.0,
-        "fs_after": 0.1583662150469975,
-        "regr_broken": 0
+        "fs_after": 0.3217700506646543,
+        "regr_broken": 1
       },
       "+Verify(noclue)": {
-        "acc": 0.6452830188679245,
-        "step_support_rate": 0.4216954022988506,
-        "keep_frac": 0.25,
-        "fs_after": 0.09307175985805938,
+        "acc": 0.8220338983050848,
+        "step_support_rate": 0.5787545787545787,
+        "keep_frac": 0.1906779661016949,
+        "fs_after": 0.1863901992146336,
         "regr_broken": 0
       },
       "+Verify+Clue": {
-        "acc": 0.6452830188679245,
-        "step_support_rate": 0.38519813519813517,
-        "keep_frac": 0.2792452830188679,
-        "fs_after": 0.09307175985805938,
+        "acc": 0.8220338983050848,
+        "step_support_rate": 0.5641534391534391,
+        "keep_frac": 0.24364406779661016,
+        "fs_after": 0.1863901992146336,
         "regr_broken": 0
       },
       "Full": {
-        "acc": 0.6377358490566037,
-        "step_support_rate": 0.38519813519813517,
-        "keep_frac": 0.2792452830188679,
-        "fs_after": 0.1583662150469975,
-        "regr_broken": 0
+        "acc": 0.8432203389830508,
+        "step_support_rate": 0.5641534391534391,
+        "keep_frac": 0.24364406779661016,
+        "fs_after": 0.3217700506646543,
+        "regr_broken": 1
       }
     }
   },
@@ -48,37 +48,37 @@
     "configs": {
       "baseline": {
         "acc": 0.5368956743002544,
-        "step_support_rate": 0.2600508905852417,
+        "step_support_rate": 0.25750636132315524,
         "keep_frac": 1.0,
-        "fs_after": 0.0171668376080925,
+        "fs_after": 0.016879994959791048,
         "regr_broken": 0
       },
       "+VCD": {
-        "acc": 0.6946564885496184,
-        "step_support_rate": 0.2600508905852417,
+        "acc": 0.6895674300254453,
+        "step_support_rate": 0.25750636132315524,
         "keep_frac": 1.0,
-        "fs_after": 0.15719679691147442,
+        "fs_after": 0.15412201958200608,
         "regr_broken": 0
       },
       "+Verify(noclue)": {
         "acc": 0.5368956743002544,
-        "step_support_rate": 0.528505291005291,
-        "keep_frac": 0.2900763358778626,
-        "fs_after": 0.0171668376080925,
+        "step_support_rate": 0.5009009009009009,
+        "keep_frac": 0.19999999999999998,
+        "fs_after": 0.016879994959791048,
         "regr_broken": 0
       },
       "+Verify+Clue": {
         "acc": 0.5368956743002544,
-        "step_support_rate": 0.5513280212483399,
-        "keep_frac": 0.29821882951653944,
-        "fs_after": 0.0171668376080925,
+        "step_support_rate": 0.5571794871794872,
+        "keep_frac": 0.20712468193384226,
+        "fs_after": 0.016879994959791048,
         "regr_broken": 0
       },
       "Full": {
-        "acc": 0.6946564885496184,
-        "step_support_rate": 0.5513280212483399,
-        "keep_frac": 0.29821882951653944,
-        "fs_after": 0.15719679691147442,
+        "acc": 0.6895674300254453,
+        "step_support_rate": 0.5571794871794872,
+        "keep_frac": 0.20712468193384226,
+        "fs_after": 0.15412201958200608,
         "regr_broken": 0
       }
     }
