@@ -18,14 +18,25 @@ Each entry: what's blocked · exactly what is needed · what happens once provid
   packaged as a Colab notebook (entry added when committed). If you prefer an
   API judge (Claude/GPT), provide the key as an env var and I'll wire it.
 
-- **[B] 2026-07-03 — GPU notebook `colab_stage4_correction_real.ipynb` NOT YET
-  CREATED.** Instance B must create this notebook in the next run before it can
-  be opened in Colab. Tokens `HF_TOKEN` + `GITHUB_TOKEN` are now ready —
-  add both as Colab secrets when running.
+- **[B] 2026-07-03 — ✅ GPU run ready — `fmr/notebooks/colab_stage4_correction_real.ipynb`
+  CREATED & committed (nbformat-valid, 16 cells).** Open in Colab (GPU runtime),
+  add Colab secrets `HF_TOKEN` + `GITHUB_TOKEN` (notebook access on), Run All. It
+  clones `instance-b`, runs the committed `fmr.correction` pipeline fed by real
+  Qwen2.5-VL-3B answer distributions on a 40-item VQA-RAD closed subset, sanity-
+  checks MedGemma, saves `fmr/results/correction_real_*.json`, and pushes to
+  `instance-b`. On my next resume I pull these and compare real-vs-mock Stage-4
+  gains. *Note:* the `RealAnswerVLM` adapter (teacher-forced choice scoring) is
+  the one piece never runnable on this CPU box — sanity-check its first few
+  printed rows look plausible before trusting the summary.
 
-- **[B] 2026-07-03 — GPU/LLM notebook `colab_judge_llm.ipynb` NOT YET CREATED.**
-  Instance B must create this notebook in the next run. Tokens `HF_TOKEN` +
-  `GITHUB_TOKEN` are now ready — add both as Colab secrets when running.
+- **[B] 2026-07-03 — ✅ GPU run ready — `fmr/notebooks/colab_judge_llm.ipynb`
+  CREATED & committed (nbformat-valid, 9 cells).** Open in Colab (GPU runtime),
+  add secrets `HF_TOKEN` + `GITHUB_TOKEN`, Run All. Scores the N=44 judge gold set
+  with an independent open LLM (Qwen2.5-7B-Instruct) via the committed `LLMJudge`,
+  reports LLM-vs-gold and LLM-vs-heuristic agreement, saves
+  `fmr/results/judge_llm_validation.json`, pushes to `instance-b`. This is the
+  independent external check that upgrades the heuristic's tuned κ=1.0 into a
+  trustworthy judge number.
 
 ## Resolved
 
