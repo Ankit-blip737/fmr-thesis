@@ -169,6 +169,40 @@ def fig_model_agnosticism(full: dict, fig_dir: Path) -> None:
     plt.close(fig)
 
 
+def fig_weight_sensitivity(abl: dict, fig_dir: Path) -> None:
+    """FS AUROC envelope across fusion weights vs the default + best-hand."""
+    ws = abl["weight_sensitivity"]
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.bar(["min", "mean", "max"], [ws["auroc_min"], ws["auroc_mean"], ws["auroc_max"]],
+           color="#8ca0c8", width=0.5)
+    ax.axhline(ws["default_weights_auroc"], color="green", ls="--",
+               label=f"default weights ({ws['default_weights_auroc']:.3f})")
+    ax.set_ylim(0.5, 1.0)
+    ax.set_ylabel("Fused-FS AUROC")
+    ax.set_title("FS is robust to fusion weights\n(learned verifier target = beat the max)")
+    ax.legend()
+    ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(fig_dir / "fig7_weight_sensitivity.png", dpi=150)
+    plt.close(fig)
+
+
+def fig_abstention_power(abl: dict, fig_dir: Path) -> None:
+    """Min calibration size needed to certify each target error rate."""
+    power = abl["abstention_power"]["min_cal_size_for_alpha"]
+    alphas = sorted(power, key=float)
+    ys = [power[a] if power[a] is not None else np.nan for a in alphas]
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot([float(a) for a in alphas], ys, "-o")
+    ax.set_xlabel("Target error rate α")
+    ax.set_ylabel("Min calibration size to certify")
+    ax.set_title("Conformal power: tighter guarantees need more calibration data")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(fig_dir / "fig8_abstention_power.png", dpi=150)
+    plt.close(fig)
+
+
 def main(out_dir: str) -> None:
     out = Path(out_dir)
     fig_dir = ensure_dir(out / "figures")
@@ -176,6 +210,7 @@ def main(out_dir: str) -> None:
     results = _load(out, "fmr_results.json")
     records = _load(out, "fmr_records.json")
     full = _load(out, "full_benchmark.json")
+    abl = _load(out, "ablations.json")
     if blind:
         fig_drift(blind, fig_dir)
         fig_blind(blind, fig_dir)
@@ -186,6 +221,9 @@ def main(out_dir: str) -> None:
     if full:
         fig_incremental_fusion(full, fig_dir)
         fig_model_agnosticism(full, fig_dir)
+    if abl:
+        fig_weight_sensitivity(abl, fig_dir)
+        fig_abstention_power(abl, fig_dir)
     print(f"[figures] wrote figures to {fig_dir}")
 
 
