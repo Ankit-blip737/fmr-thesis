@@ -1,0 +1,25 @@
+{
+  "dataset": "pathvqa",
+  "split": "test",
+  "n": 75,
+  "models": {
+    "medvlm_r1": {
+      "name": "JZPeterPan/MedVLM-R1",
+      "is_reasoning": true,
+      "accuracy": 0.22666666666666666,
+      "per_modality": {
+        "ct": 0.2,
+        "pathology": 0.23076923076923078
+      }
+    },
+    "qwen25_vl_3b": {
+      "name": "Qwen/Qwen2.5-VL-3B-Instruct",
+      "is_reasoning": false,
+      "accuracy": 0.2,
+      "per_modality": {
+        "ct": 0.5,
+        "pathology": 0.15384615384615385
+      }
+    }
+  }
+}
