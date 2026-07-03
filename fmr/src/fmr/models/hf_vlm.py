@@ -42,20 +42,32 @@ class HFVLM:
 
     @staticmethod
     def _patch_config_for_strict_hub() -> None:  # pragma: no cover
-        """Coerce None→True for bool config fields before hf_hub>=0.34 strict validation."""
+        """Patch PretrainedConfig.from_dict to coerce None→True for bool fields.
+        Fixes huggingface_hub>=0.34 StrictDataclassFieldValidationError on use_cache=None.
+        Patching from_dict (not __init__) is necessary because hf_hub's init_with_validate
+        stores a per-class __init__ in each class __dict__, making base-class __init__
+        patches ineffective for subclasses like Qwen2TextConfig.
+        """
         try:
             from transformers import configuration_utils
-            _BOOL_FIELDS = {"use_cache", "output_attentions", "output_hidden_states",
-                            "return_dict", "tie_word_embeddings", "is_decoder"}
-            _orig = configuration_utils.PretrainedConfig.__init__
-            def _patched(self_cfg, *a, **kw):
-                for f in _BOOL_FIELDS:
-                    if f in kw and kw[f] is None:
-                        kw[f] = True
-                _orig(self_cfg, *a, **kw)
+            _BOOL_FIELDS = frozenset({
+                "use_cache", "output_attentions", "output_hidden_states",
+                "return_dict", "tie_word_embeddings", "is_decoder",
+                "add_cross_attention", "chunk_size_feed_forward",
+            })
+            def _sanitize(d: dict) -> None:
+                for k, v in list(d.items()):
+                    if k in _BOOL_FIELDS and v is None:
+                        d[k] = True
+                    elif isinstance(v, dict):
+                        _sanitize(v)
+            _orig = configuration_utils.PretrainedConfig.from_dict.__func__
+            def _patched(cls, config_dict: dict, **kwargs):
+                _sanitize(config_dict)
+                return _orig(cls, config_dict, **kwargs)
             if not getattr(_orig, "_fmr_patched", False):
-                configuration_utils.PretrainedConfig.__init__ = _patched
-                _patched._fmr_patched = True
+                _orig._fmr_patched = True
+                configuration_utils.PretrainedConfig.from_dict = classmethod(_patched)
         except Exception:
             pass
 
