@@ -13,6 +13,7 @@ from fmr.correction import (  # noqa: E402
     CorrectionConfig,
     clue_support,
     correct_sample,
+    post_correction_fs,
     post_correction_sensitivity,
     trace_clue_region,
     vcd_answer,
@@ -126,6 +127,35 @@ def test_rescore_shape_matches_signal_a(mock, samples):
     assert set(post) == {"corrected", "counterfactual", "flip_rate", "js_divergence"}
     # identical output => identical sensitivity as Signal A on the raw model
     assert post["counterfactual"] == pytest.approx(ref["counterfactual"])
+
+
+def test_post_correction_fs_default_fusion(mock, samples):
+    s = samples[0]
+    out = mock.generate(s)
+    res = post_correction_fs(mock, s, out)
+    assert set(res) >= {"fs", "signal_a", "signal_b", "signal_c"}
+    assert 0.0 <= res["fs"] <= 1.0
+
+
+def test_post_correction_fs_accepts_injected_A_functions(mock, samples):
+    """Simulates the merge: Instance A passes their attention_signal + fuse."""
+    s = samples[0]
+    out = mock.generate(s)
+    calls = {}
+
+    def fake_attention(corrected):
+        calls["att"] = True
+        return {"attention": 0.9, "per_step": [0.9]}
+
+    def fake_fuse(a, b, c):
+        calls["fuse"] = (a, b, c)
+        return 0.123
+
+    res = post_correction_fs(mock, s, out, attention_fn=fake_attention,
+                             consistency_c=0.5, fuse_fn=fake_fuse)
+    assert calls["att"] and res["signal_b"] == pytest.approx(0.9)
+    assert res["signal_c"] == pytest.approx(0.5)
+    assert res["fs"] == pytest.approx(0.123)
 
 
 # ---------- pipeline ---------------------------------------------------------

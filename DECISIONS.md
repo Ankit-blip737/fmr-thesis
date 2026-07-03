@@ -121,3 +121,28 @@ entry; append corrections as new entries.
   verifier is a drop-in for the FS fusion via `LearnedVerifier.score(features)`;
   if you'd rather keep the training-free path, do nothing — `HeuristicFusion`
   is the default and the pipeline never hard-depends on the trained head.
+
+- **[B] 2026-07-03 — Saw Instance A's `faithfulness/score.py` on `master`; built
+  the merge adapter (stubs now consume real signals).** A committed the documented
+  per-signal record schema (signal_a/b/c, signal_*_per_step, iou_per_step,
+  weak_labels, grounded_latent, output) explicitly for this verifier. I added
+  `training/adapter.py` mapping one A-record → verifier `FEATURE_KEYS`, plus
+  `frame_from_records`, tested against a hand-built record matching their schema
+  (8 tests). **On merge:** point `train_verifier.py` at
+  `frame_from_records(score.score_dataset(vlm, samples))` (one-line source swap) to
+  retrain the verifier on real Signals A/B/C; labels/verifier/eval unchanged.
+  The adapter reads dict keys only (no import of A's module) so this branch stays
+  standalone-testable. Minor schema note for merge: A's record has one `signal_c`
+  scalar (+ `signal_c_vote`) — I map `c_region_consistency` to `signal_c_vote`;
+  fine, but if A later splits C into answer/region components, update that mapping.
+
+- **[B] 2026-07-03 — Concrete calibration-ordering integration (fix #2, upgraded).**
+  Added `correction.post_correction_fs(vlm, sample, corrected, *, attention_fn=,
+  consistency_c=, fuse_fn=)` — the *fused* post-correction FS the gate should
+  calibrate on, via dependency injection. **On merge [A]:** call it with
+  `attention_fn=faithfulness.attention.attention_signal`,
+  `consistency_c=<sample's signal_c>`, `fuse_fn=faithfulness.score.fuse` to get a
+  fused FS assembled from your real Signals B/C on the *corrected* output plus my
+  rescored Signal A. Signal C is reused pre-correction (self-consistency is a
+  sampling property, ~unchanged by deterministic correction). Defaults (no
+  injection) mirror your published 0.4/0.3/0.3 weights so it runs on my branch too.

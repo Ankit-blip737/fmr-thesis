@@ -203,3 +203,28 @@ stubs so nothing is blocked): real Signals A/B/C from `faithfulness/score.py` (t
 retrain the verifier on real data + feed the fused FS into the correction trigger),
 and wiring the post-correction FS into the conformal gate.
 
+### [B] 2026-07-03 — Integrated against Instance A's real interface (merge-ready)
+
+Instance A published `faithfulness/score.py` on `master` with a documented
+per-signal record schema built explicitly for this verifier. I integrated without
+touching their files or my branch's standalone-ness:
+- `training/adapter.py` — maps one A-record → verifier `FEATURE_KEYS`
+  (`features_from_record`), + `frame_from_records`, + weak/true-label extractors.
+  Prefers GT-based `iou_per_step`/`weak_labels` when present, falls back to
+  `signal_b_per_step`/counterfactual-flip otherwise. Dict-only (no import of A's
+  module). **Tests:** `tests/test_adapter.py` 8 passed, incl. an end-to-end train
+  of a LearnedVerifier on real-schema records → AUROC>0.9 vs latent.
+- `correction.post_correction_fs(...)` — injectable fused post-correction FS for
+  the conformal gate (fix #2 upgraded): pass A's `attention_signal` + `fuse` and
+  the sample's `signal_c` to get a fully-fused post-correction score; defaults
+  mirror A's 0.4/0.3/0.3 weights. **Tests:** 2 added (default + injected-A path).
+
+**Merge plan (one-line source swaps, no logic changes):**
+1. verifier: `frame_from_records(score.score_dataset(vlm, samples))` → retrains on
+   real Signals A/B/C.
+2. correction trigger: `correct_sample(vlm, s, fs=record["fs"])` → uses A's fused FS.
+3. gate: calibrate on `post_correction_fs(..., attention_fn=attention_signal,
+   consistency_c=record["signal_c"], fuse_fn=score.fuse)["fs"]`.
+
+Full suite now **56 passed** (4.90s).
+

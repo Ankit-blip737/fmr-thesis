@@ -17,7 +17,7 @@ Components (all decode-time, no training):
 from .vcd import VCDResult, vcd_answer
 from .clue_tracing import ClueTrace, trace_clue_region, clue_support
 from .verify_revise import verify_and_revise
-from .rescore import post_correction_sensitivity
+from .rescore import post_correction_sensitivity, post_correction_fs
 from .pipeline import CorrectionConfig, CorrectionResult, correct_sample
 
 __all__ = [
@@ -28,6 +28,7 @@ __all__ = [
     "clue_support",
     "verify_and_revise",
     "post_correction_sensitivity",
+    "post_correction_fs",
     "CorrectionConfig",
     "CorrectionResult",
     "correct_sample",
