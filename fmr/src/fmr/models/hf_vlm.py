@@ -64,45 +64,54 @@ class HFVLM:
 
     # ---- lazy load ----------------------------------------------------------
     @staticmethod
-    def _patch_config_for_strict_hub(model_id: str) -> None:  # pragma: no cover
+    def _patch_config_for_strict_hub() -> None:  # pragma: no cover
         """Work around huggingface_hub>=0.34 StrictDataclassFieldValidationError.
 
-        huggingface_hub 0.34+ introduced strict dataclass validation that rejects
-        ``None`` for fields typed ``bool``.  Several open VLM configs on HF (e.g.
-        Qwen2-VL, MedVLM-R1) have ``"use_cache": null`` in their config.json, which
-        triggers:
-            StrictDataclassFieldValidationError: Field 'use_cache' expected bool,
-            got NoneType (value: None)
-        when transformers < 4.52 passes the raw dict straight to the dataclass.
+        Root cause: hf_hub 0.34+ strict dataclass validation rejects None for bool
+        fields. Several VLM configs on HF (Qwen2-VL, MedVLM-R1) have
+        ``"use_cache": null`` in config.json.  The crash site is inside
+        ``Qwen2TextConfig.__init__`` (a sub-config instantiated in
+        ``Qwen2VLConfig.__post_init__``). Because hf_hub's ``init_with_validate``
+        decorator stores a *per-class* __init__ in each class's __dict__, patching
+        ``PretrainedConfig.__init__`` has NO effect on subclasses.
 
-        Fix: monkey-patch ``transformers.configuration_utils.PretrainedConfig``'s
-        ``__init__`` to coerce None→True for all known bool fields *before* the
-        hf_hub validator fires.  This is safe: ``use_cache=None`` is semantically
-        equivalent to ``use_cache=True`` (the default) in every transformers model.
+        Correct fix: patch ``PretrainedConfig.from_dict`` (a classmethod inherited
+        by all subclasses that don't override it). It receives the raw dict from
+        config.json *before* ``cls(**config_dict)`` is called — sanitising None bool
+        values here propagates through the entire nested config tree.
 
-        Alternatively, ``pip install 'transformers>=4.52.0'`` before running.
+        Alternatively: ``pip install 'transformers>=4.52.0'`` before running.
         """
         try:
-            import transformers
             from transformers import configuration_utils
 
-            _BOOL_FIELDS = {"use_cache", "output_attentions", "output_hidden_states",
-                            "return_dict", "tie_word_embeddings", "is_decoder",
-                            "add_cross_attention", "chunk_size_feed_forward"}
+            _BOOL_FIELDS = frozenset({
+                "use_cache", "output_attentions", "output_hidden_states",
+                "return_dict", "tie_word_embeddings", "is_decoder",
+                "add_cross_attention", "chunk_size_feed_forward",
+            })
 
-            _orig_init = configuration_utils.PretrainedConfig.__init__
+            def _sanitize_dict(d: dict) -> None:
+                """Recursively coerce None → True for known bool fields."""
+                for k, v in list(d.items()):
+                    if k in _BOOL_FIELDS and v is None:
+                        d[k] = True
+                    elif isinstance(v, dict):
+                        _sanitize_dict(v)
 
-            def _patched_init(self_cfg, *args, **kwargs):
-                for field in _BOOL_FIELDS:
-                    if field in kwargs and kwargs[field] is None:
-                        kwargs[field] = True
-                _orig_init(self_cfg, *args, **kwargs)
+            _orig_from_dict = configuration_utils.PretrainedConfig.from_dict.__func__
 
-            if not getattr(configuration_utils.PretrainedConfig.__init__, "_fmr_patched", False):
-                configuration_utils.PretrainedConfig.__init__ = _patched_init
-                configuration_utils.PretrainedConfig.__init__._fmr_patched = True
+            def _patched_from_dict(cls, config_dict: dict, **kwargs):
+                _sanitize_dict(config_dict)
+                return _orig_from_dict(cls, config_dict, **kwargs)
+
+            if not getattr(_orig_from_dict, "_fmr_patched", False):
+                _orig_from_dict._fmr_patched = True
+                configuration_utils.PretrainedConfig.from_dict = classmethod(
+                    _patched_from_dict
+                )
         except Exception:
-            pass  # If the patch fails, proceed — newer transformers doesn't need it.
+            pass  # Newer transformers already handles this; patch not needed.
 
     def _ensure_loaded(self) -> None:  # pragma: no cover - requires weights
         if self._model is not None:
@@ -115,7 +124,7 @@ class HFVLM:
         except Exception:  # older transformers
             from transformers import AutoModelForVision2Seq as _AutoVLM
 
-        self._patch_config_for_strict_hub(self.model_id)
+        self._patch_config_for_strict_hub()
 
         td = {"auto": "auto", "fp16": torch.float16, "bf16": torch.bfloat16}.get(self.dtype, "auto")
         self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
