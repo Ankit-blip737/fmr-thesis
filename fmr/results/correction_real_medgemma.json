@@ -1,0 +1,51 @@
+{
+  "model": "google/medgemma-4b-it",
+  "n": 40,
+  "acc_before": 0.475,
+  "fs_before_mean": 0.0,
+  "sweep": [
+    {
+      "vcd_margin": 0.0,
+      "acc_after": 0.475,
+      "answers_changed": 0,
+      "fs_after_mean": 0.0
+    },
+    {
+      "vcd_margin": 0.25,
+      "acc_after": 0.475,
+      "answers_changed": 0,
+      "fs_after_mean": 0.0
+    },
+    {
+      "vcd_margin": 0.5,
+      "acc_after": 0.475,
+      "answers_changed": 0,
+      "fs_after_mean": 0.0
+    },
+    {
+      "vcd_margin": 1.0,
+      "acc_after": 0.475,
+      "answers_changed": 0,
+      "fs_after_mean": 0.0
+    },
+    {
+      "vcd_margin": 2.0,
+      "acc_after": 0.475,
+      "answers_changed": 0,
+      "fs_after_mean": 0.0
+    },
+    {
+      "vcd_margin": null,
+      "acc_after": 0.475,
+      "answers_changed": 0,
+      "fs_after_mean": 0.0
+    }
+  ],
+  "safe_operating_point": {
+    "vcd_margin": 0.0,
+    "acc_after": 0.475,
+    "answers_changed": 0,
+    "fs_after_mean": 0.0
+  },
+  "seconds": 3126.1
+}

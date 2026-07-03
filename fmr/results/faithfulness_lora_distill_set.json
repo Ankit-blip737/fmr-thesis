@@ -1,0 +1,122 @@
+[
+  {
+    "sample_id": "vqarad-tr-000",
+    "question": "are regions of the brain infarcted?",
+    "target_answer": "yes",
+    "target_rationale": "All 7 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.2832149873955773,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-002",
+    "question": "is the lesion causing significant brainstem herniation?",
+    "target_answer": "yes",
+    "target_rationale": "All 5 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.3245723373617406,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-005",
+    "question": "are the lungs affected?",
+    "target_answer": "yes",
+    "target_rationale": "All 6 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.47791521609072996,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-009",
+    "question": "is this an mri?",
+    "target_answer": "no",
+    "target_rationale": "No. Step-by-step reasoning: 1. **Image Type Identification**: The image is a chest X-ray, which is a type of radiographic imaging. 2. **Comparison to MRI**: An MRI (Magnetic Resonance Imaging) produces images using magnetic fields and radio waves, not X-rays. MRI images are typically in grayscale and show soft tissues more clearly than bones. 3. **Conclusion**: Since the image is a chest X-ray, it cannot be an MRI.",
+    "fs": 0.5101302969376769,
+    "source_correction_applied": false
+  },
+  {
+    "sample_id": "vqarad-tr-012",
+    "question": "are there abnormalities with in the contrast between white and grey matter?",
+    "target_answer": "yes",
+    "target_rationale": "All 5 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.268762724465814,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-019",
+    "question": "is the right renal vein visualized?",
+    "target_answer": "yes",
+    "target_rationale": "All 5 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.2510563026641796,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-020",
+    "question": "is it possible to identify the right renal vein?",
+    "target_answer": "yes",
+    "target_rationale": "All 7 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.28341650429554976,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-021",
+    "question": "are the kidneys visible in this image?",
+    "target_answer": "yes",
+    "target_rationale": "To determine if the kidneys are visible in this image, let's analyze the following steps: 1. **Identify the Image Type**: The image is an axial (horizontal) CT scan of the abdomen. 2. **Analyze the Anatomical Structures**: - The kidneys are typically located on either side of the spine, posterior to the peritoneal cavity. - In an axial CT scan, the kidneys appear as bean-shaped structures with a central medullary",
+    "fs": 0.5738080137470536,
+    "source_correction_applied": false
+  },
+  {
+    "sample_id": "vqarad-tr-022",
+    "question": "is air visible in the bowels?",
+    "target_answer": "yes",
+    "target_rationale": "All 7 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.08308537952659842,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-023",
+    "question": "is there air in the bowel?",
+    "target_answer": "yes",
+    "target_rationale": "All 8 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.4085855851330146,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-024",
+    "question": "are structures associated with the midbrain located in this image?",
+    "target_answer": "yes",
+    "target_rationale": "All 6 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.6671056169848995,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-025",
+    "question": "are the kidneys visualized?",
+    "target_answer": "yes",
+    "target_rationale": "All 7 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.3498011097620859,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-026",
+    "question": "can you see the kidneys",
+    "target_answer": "yes",
+    "target_rationale": "To determine if the kidneys are visible in the image, I'll follow these steps: 1. Examine the overall structure of the abdominal area. 2. Look for any structures that resemble kidney shapes or positions. 3. Check for any signs of renal outlines or densities. Observation: - The image shows an axial view of the abdomen. - There are several structures visible, including the intestines and possibly some fat. - The kidneys typically appear as bean-shaped structures located on either",
+    "fs": 0.734411811959602,
+    "source_correction_applied": false
+  },
+  {
+    "sample_id": "vqarad-tr-027",
+    "question": "is the midbrain identified in this section?",
+    "target_answer": "yes",
+    "target_rationale": "All 8 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.44209918830561734,
+    "source_correction_applied": true
+  },
+  {
+    "sample_id": "vqarad-tr-028",
+    "question": "is there fluid in the lungs?",
+    "target_answer": "yes",
+    "target_rationale": "All 9 reasoning steps lacked traceable visual support; rationale withheld and the answer was re-derived with image-anchored contrastive decoding.",
+    "fs": 0.2745451271753883,
+    "source_correction_applied": true
+  }
+]

@@ -1,0 +1,12 @@
+# Stage 4 — training-free correction (Instance B).
+# Consumed by fmr.correction.CorrectionConfig.from_dict / scripts/run_correction.py.
+correction:
+  trigger_threshold: 0.5     # correct only when the faithfulness score < this
+  alpha: 1.0                 # VCD contrast strength (Leng et al. default)
+  beta: 0.1                  # VCD adaptive-plausibility cutoff
+  contrast_variants: [blank, mismatch]
+  support_threshold: 0.25    # min clue-support for a step to survive revision
+  vcd_margin: 0.25           # min log-margin before adopting a VCD answer flip
+  n_probes: 3                # chains probed for clue tracing
+  probe_temperature: 0.7
+  early_weight: 0.5          # down-weight late (drift-prone) steps in the trace

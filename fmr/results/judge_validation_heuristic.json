@@ -1,0 +1,51 @@
+{
+  "n": 44,
+  "accuracy": 1.0,
+  "binary_accuracy(correct_vs_not)": 1.0,
+  "cohens_kappa": 1.0,
+  "per_class": {
+    "correct": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "support": 22
+    },
+    "partial": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "support": 5
+    },
+    "incorrect": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "support": 17
+    }
+  },
+  "confusion": {
+    "correct": {
+      "correct": 22,
+      "partial": 0,
+      "incorrect": 0
+    },
+    "partial": {
+      "correct": 0,
+      "partial": 5,
+      "incorrect": 0
+    },
+    "incorrect": {
+      "correct": 0,
+      "partial": 0,
+      "incorrect": 17
+    }
+  },
+  "sources": {
+    "heuristic": 44,
+    "llm-fallback": 0,
+    "llm": 0
+  },
+  "gold_label_distribution": {
+    "correct": 22,
+    "incorrect": 17,
+    "partial": 5
+  },
+  "judge": "heuristic"
+}

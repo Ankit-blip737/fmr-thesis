@@ -1,0 +1,86 @@
+{
+  "mock-reasoner": {
+    "model": "mock-reasoner",
+    "n_flagged": 265,
+    "n_wellgrounded_holdout": 135,
+    "configs": {
+      "baseline": {
+        "acc": 0.6452830188679245,
+        "step_support_rate": 0.18584905660377357,
+        "keep_frac": 1.0,
+        "fs_after": 0.09307175985805938,
+        "regr_broken": 0
+      },
+      "+VCD": {
+        "acc": 0.6377358490566037,
+        "step_support_rate": 0.18584905660377357,
+        "keep_frac": 1.0,
+        "fs_after": 0.1583662150469975,
+        "regr_broken": 0
+      },
+      "+Verify(noclue)": {
+        "acc": 0.6452830188679245,
+        "step_support_rate": 0.4216954022988506,
+        "keep_frac": 0.25,
+        "fs_after": 0.09307175985805938,
+        "regr_broken": 0
+      },
+      "+Verify+Clue": {
+        "acc": 0.6452830188679245,
+        "step_support_rate": 0.38519813519813517,
+        "keep_frac": 0.2792452830188679,
+        "fs_after": 0.09307175985805938,
+        "regr_broken": 0
+      },
+      "Full": {
+        "acc": 0.6377358490566037,
+        "step_support_rate": 0.38519813519813517,
+        "keep_frac": 0.2792452830188679,
+        "fs_after": 0.1583662150469975,
+        "regr_broken": 0
+      }
+    }
+  },
+  "mock-prior-heavy": {
+    "model": "mock-prior-heavy",
+    "n_flagged": 393,
+    "n_wellgrounded_holdout": 7,
+    "configs": {
+      "baseline": {
+        "acc": 0.5368956743002544,
+        "step_support_rate": 0.2600508905852417,
+        "keep_frac": 1.0,
+        "fs_after": 0.0171668376080925,
+        "regr_broken": 0
+      },
+      "+VCD": {
+        "acc": 0.6946564885496184,
+        "step_support_rate": 0.2600508905852417,
+        "keep_frac": 1.0,
+        "fs_after": 0.15719679691147442,
+        "regr_broken": 0
+      },
+      "+Verify(noclue)": {
+        "acc": 0.5368956743002544,
+        "step_support_rate": 0.528505291005291,
+        "keep_frac": 0.2900763358778626,
+        "fs_after": 0.0171668376080925,
+        "regr_broken": 0
+      },
+      "+Verify+Clue": {
+        "acc": 0.5368956743002544,
+        "step_support_rate": 0.5513280212483399,
+        "keep_frac": 0.29821882951653944,
+        "fs_after": 0.0171668376080925,
+        "regr_broken": 0
+      },
+      "Full": {
+        "acc": 0.6946564885496184,
+        "step_support_rate": 0.5513280212483399,
+        "keep_frac": 0.29821882951653944,
+        "fs_after": 0.15719679691147442,
+        "regr_broken": 0
+      }
+    }
+  }
+}

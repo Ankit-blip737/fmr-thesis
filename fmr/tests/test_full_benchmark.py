@@ -42,17 +42,22 @@ def test_full_benchmark_runs(tmp_path):
     out = str(tmp_path / "out")
     res = run_fmr_full.run(["mock_reasoner", "mock_reasoner_b"], alpha=0.1, delta=0.1,
                            out_dir=out, config_dir=cfg_dir)
-    assert res["correction_present"] is False  # module not on this branch
+    # Correction is now merged in, so the guarded import resolves.
+    assert res["correction_present"] is True
     for key in ("mock_reasoner", "mock_reasoner_b"):
         m = res["models"][key]
         v = m["validation"]
-        # Incremental fusion produces three monotone-ish AUROCs in a sane band.
+        # Incremental fusion produces three AUROCs in a sane band.
         for s in ("auroc_fs_A", "auroc_fs_AB", "auroc_fs_ABC"):
             assert 0.5 < v[s] <= 1.0
-        # Identity correction => nothing applied, accuracy unchanged.
+        # Correction ran (selective): it raises mean faithfulness, and accuracy
+        # does not collapse. A small accuracy dip is the documented
+        # faithfulness/accuracy trade-off (right-by-luck ungrounded answers may
+        # flip) — bounded, not zero.
         ce = m["correction_effect"]
-        assert ce["n_applied"] == 0
-        assert ce["acc_before"] == ce["acc_after"]
+        assert ce["n_applied"] > 0
+        assert ce["mean_fs_after"] >= ce["mean_fs_before"] - 1e-9
+        assert ce["acc_after"] >= ce["acc_before"] - 0.05
         # Deployed gate: if feasible, the empirical guarantee must hold on test.
         gate = m["abstention"]["fs_post_correction"]
         assert gate["guarantee_holds"]

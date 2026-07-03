@@ -1,0 +1,150 @@
+{
+  "config": {
+    "n_samples": 400,
+    "n_chains": 4,
+    "backends": [
+      "mock-reasoner",
+      "mock-prior-heavy"
+    ],
+    "headline_noise": 0.3,
+    "margin": 0.01
+  },
+  "splits": {
+    "train_rows": 400,
+    "test_rows": 200,
+    "cal_reserved_for_A": 100,
+    "test_true_pos_rate": 0.49
+  },
+  "weak_label_source": "counterfactual flip_rate>=0.5 (noisy; no GT boxes)",
+  "noise_sweep": [
+    {
+      "noise": 0.0,
+      "weak_vs_true_agreement(train)": 0.775,
+      "per_signal_auroc": {
+        "sig_a_counterfactual": 0.9852941176470589,
+        "sig_b_grounding": 0.9940976390556222,
+        "sig_c_consistency": 0.7146358543417367
+      },
+      "heuristic_auroc": 0.9981992797118847,
+      "heuristic_auprc": 0.9982712161785293,
+      "learned": {
+        "logreg": {
+          "auroc": 0.986594637855142,
+          "auprc": 0.988212821662153,
+          "pearson_vs_heuristic": 0.873697363142586,
+          "label_agreement_vs_heuristic@0.5": 0.965,
+          "importance": {
+            "sig_a_counterfactual": 1.6191664476111314,
+            "sig_b_grounding": 0.45840280183496623,
+            "sig_c_consistency": 0.12987483207339023,
+            "a_flip_rate": 1.7692286573902376,
+            "a_js": 1.0909962620715006,
+            "b_iou_max": 0.249718828929232,
+            "b_iou_first": 0.3372321203167297,
+            "b_iou_last": 0.11675137540587789,
+            "b_iou_slope": 0.25047286685318826,
+            "c_answer_consistency": 0.12987483207339023,
+            "c_region_consistency": 0.0,
+            "aux_answer_margin": 0.1343792895341795,
+            "aux_n_steps": 0.8793187291035417
+          }
+        },
+        "gbt": {
+          "auroc": 0.75,
+          "auprc": 0.745,
+          "pearson_vs_heuristic": 0.8654808538377026,
+          "label_agreement_vs_heuristic@0.5": 0.965,
+          "importance": {
+            "sig_a_counterfactual": 0.481543654146505,
+            "sig_b_grounding": 0.0,
+            "sig_c_consistency": 0.0,
+            "a_flip_rate": 0.5184563458534935,
+            "a_js": 1.1515642112221772e-15,
+            "b_iou_max": 0.0,
+            "b_iou_first": 0.0,
+            "b_iou_last": 3.688556759170643e-17,
+            "b_iou_slope": 0.0,
+            "c_answer_consistency": 0.0,
+            "c_region_consistency": 0.0,
+            "aux_answer_margin": 3.3631413118818e-16,
+            "aux_n_steps": 0.0
+          }
+        }
+      },
+      "oracle_auroc": 1.0,
+      "best_learned_kind": "logreg",
+      "best_learned_auroc": 0.986594637855142,
+      "learned_minus_heuristic": -0.011604641856742703
+    },
+    {
+      "noise": 0.3,
+      "weak_vs_true_agreement(train)": 0.775,
+      "per_signal_auroc": {
+        "sig_a_counterfactual": 0.7266906762705082,
+        "sig_b_grounding": 0.9920968387354943,
+        "sig_c_consistency": 0.5879851940776311
+      },
+      "heuristic_auroc": 0.928171268507403,
+      "heuristic_auprc": 0.9284270517063102,
+      "learned": {
+        "logreg": {
+          "auroc": 0.9648859543817527,
+          "auprc": 0.9631130067186612,
+          "pearson_vs_heuristic": 0.713866148519862,
+          "label_agreement_vs_heuristic@0.5": 0.86,
+          "importance": {
+            "sig_a_counterfactual": 0.5462047561646864,
+            "sig_b_grounding": 0.5733201439849502,
+            "sig_c_consistency": 0.22463174257643842,
+            "a_flip_rate": 2.404628117822894,
+            "a_js": 1.4531602733838982,
+            "b_iou_max": 0.31766688866963083,
+            "b_iou_first": 0.3827638110184492,
+            "b_iou_last": 0.09882938708081555,
+            "b_iou_slope": 0.2563271689716729,
+            "c_answer_consistency": 0.05165620631491903,
+            "c_region_consistency": 0.0,
+            "aux_answer_margin": 0.18680502276560315,
+            "aux_n_steps": 0.9767014862557772
+          }
+        },
+        "gbt": {
+          "auroc": 0.75,
+          "auprc": 0.745,
+          "pearson_vs_heuristic": 0.691519916693116,
+          "label_agreement_vs_heuristic@0.5": 0.855,
+          "importance": {
+            "sig_a_counterfactual": 3.8422317676967477e-16,
+            "sig_b_grounding": 3.2764985576547866e-16,
+            "sig_c_consistency": 1.0845200717716167e-16,
+            "a_flip_rate": 0.9999999999999984,
+            "a_js": 3.867665991845693e-16,
+            "b_iou_max": 0.0,
+            "b_iou_first": 0.0,
+            "b_iou_last": 1.831026435694633e-16,
+            "b_iou_slope": 4.1514834089843916e-17,
+            "c_answer_consistency": 0.0,
+            "c_region_consistency": 0.0,
+            "aux_answer_margin": 1.7185929027745293e-16,
+            "aux_n_steps": 0.0
+          }
+        }
+      },
+      "oracle_auroc": 1.0,
+      "best_learned_kind": "logreg",
+      "best_learned_auroc": 0.9648859543817527,
+      "learned_minus_heuristic": 0.036714685874349784
+    }
+  ],
+  "headline": {
+    "noise": 0.3,
+    "heuristic_auroc": 0.928171268507403,
+    "best_learned_kind": "logreg",
+    "best_learned_auroc": 0.9648859543817527,
+    "delta": 0.036714685874349784,
+    "oracle_auroc": 1.0,
+    "agreement_vs_heuristic@0.5": 0.86,
+    "ships_learned_as_default": true,
+    "verdict": "LEARNED VERIFIER WINS at headline noise -> ships as default"
+  }
+}

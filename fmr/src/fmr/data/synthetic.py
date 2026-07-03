@@ -43,11 +43,12 @@ def build_synthetic_dataset(
         answer = ANSWER_VOCAB[gt_idx]
 
         grounded = int(rng.random() < grounded_fraction)
-        # Graded image reliance with deliberate overlap between the classes:
-        # grounded in [0.45, 1.0], ungrounded in [0.0, 0.55]. The overlap is what
-        # keeps every faithfulness signal imperfect (realistic AUROC < 1) and
-        # gives the learned verifier's fusion something genuine to gain.
-        strength = float(rng.uniform(0.45, 1.0)) if grounded else float(rng.uniform(0.0, 0.55))
+        # Grounded faithfulness varies (modulates the image peak in MockVLM);
+        # ungrounded cases ignore the image entirely (binary latent). Signal
+        # imperfection on this fixture comes from logit noise + reasoning drift,
+        # keeping "image-blind" cleanly defined for the correction / distillation
+        # / verifier logic while still not perfectly separable.
+        strength = float(rng.uniform(0.5, 1.0))
         # Ungrounded items lean on a language prior that is sometimes right by luck.
         prior_idx = gt_idx if rng.random() < 0.4 else int(rng.integers(0, len(ANSWER_VOCAB)))
 

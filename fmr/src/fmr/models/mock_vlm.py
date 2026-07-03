@@ -49,31 +49,41 @@ class MockVLM:
 
     # ---- internal: preference logits over the answer vocabulary -------------
     def _pref(self, sample: Sample, variant: str) -> np.ndarray:
-        """Answer-preference logits, driven by a *graded* image reliance.
+        """Answer-preference logits driven by a binary ``grounded`` latent.
 
-        ``ground_strength`` in [0, 1] is how much this sample's answer actually
-        depends on the image (grounded samples get high values, ungrounded low,
-        with overlap — see data/synthetic.py). The image contributes
-        ``grounded_peak * reliance`` toward the true answer only while the image
-        is present; a language prior contributes ``prior_peak * (1 - reliance)``
-        toward ``prior_idx`` always. This graded mixture is what makes the
-        faithfulness signals informative-but-imperfect (realistic AUROCs rather
-        than a clean bimodal split).
+        Grounded samples get an image-dependent peak on the true answer that
+        vanishes when the image is removed/swapped (so the answer flips —
+        high Signal A); ungrounded samples lean on a fixed language prior that
+        is unchanged by the image (no flip — low Signal A). ``ground_strength``
+        modulates the grounded peak so grounded faithfulness still varies. The
+        logit noise keeps signals imperfect but the classes are cleanly
+        separable enough that "image-blind" cases are well-defined — which the
+        correction / distillation / verifier logic downstream depends on.
+        Realistic sub-1.0 AUROCs are demonstrated on the real-model data, not on
+        this deliberately-clean machinery fixture.
         """
         vocab = sample.answer_choices or [sample.answer]
         v = len(vocab)
         gt_idx = vocab.index(sample.answer) if sample.answer in vocab else 0
         prior_idx = int(sample.meta.get("prior_idx", gt_idx))
-        reliance = float(sample.meta.get("ground_strength", 1.0))
+        grounded = int(sample.meta.get("grounded", 1))
+        strength = float(sample.meta.get("ground_strength", 1.0))
 
         rng = rng_from(self.seed, sample.sample_id, variant, "pref")
-        pref = rng.normal(0.0, 0.45, size=v)
+        pref = rng.normal(0.0, 0.25, size=v)
 
-        pref[prior_idx] += self.prior_peak * (1.0 - reliance)
-        if variant == "original":
-            pref[gt_idx] += self.grounded_peak * reliance
-        # blank / mismatch: the image contribution simply vanishes; what remains
-        # is the prior plus noise, so low-reliance samples barely change.
+        image_present = variant == "original"
+        if image_present:
+            if grounded:
+                pref[gt_idx] += self.grounded_peak * (0.5 + 0.5 * strength)
+            else:
+                pref[prior_idx] += self.prior_peak
+        else:
+            # Image removed / swapped.
+            if grounded:
+                pass  # diffuse: relied on the (now-gone) image -> near-uniform
+            else:
+                pref[prior_idx] += self.prior_peak  # ignores image -> unchanged
         return pref
 
     def _answer(self, sample: Sample, pref: np.ndarray, temperature: float, draw: int) -> tuple[str, int]:
@@ -86,18 +96,15 @@ class MockVLM:
         return vocab[idx], idx
 
     def _steps(self, sample: Sample, variant: str, answer: str) -> list[Step]:
-        reliance = float(sample.meta.get("ground_strength", 1.0))
+        grounded = int(sample.meta.get("grounded", 1))
         gt = sample.gt_region
         rng = rng_from(self.seed, sample.sample_id, variant, "steps")
         n_rows = n_cols = int(sample.meta.get("grid", 4))
         steps: list[Step] = []
         for k in range(self.n_steps):
-            # Later steps of a reasoning chain drift away from the evidence region;
-            # how often a step is on-target is graded by the sample's reliance.
+            # Later steps of a reasoning chain drift away from the evidence region.
             drift_k = self.drift * (k / max(1, self.n_steps - 1))
-            grounded_here = (
-                variant == "original" and rng.random() < reliance * (1.0 - drift_k)
-            )
+            grounded_here = grounded and variant == "original" and rng.random() > drift_k
             if grounded_here and gt is not None:
                 # Jitter tightly around the ground-truth cell -> high IoU.
                 jx = rng.normal(0, 0.05)
