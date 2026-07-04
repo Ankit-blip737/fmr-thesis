@@ -212,3 +212,61 @@ entry; append corrections as new entries.
   rescored Signal A. Signal C is reused pre-correction (self-consistency is a
   sampling property, ~unchanged by deterministic correction). Defaults (no
   injection) mirror your published 0.4/0.3/0.3 weights so it runs on my branch too.
+
+# DECISIONS.md — autonomous design decisions (append-only)
+
+Format: `[A]`/`[B]` tag · date · decision · reasoning. Never rewrite or delete an
+entry; append corrections as new entries.
+
+---
+
+
+- **[B] 2026-07-04 — FULL INTEGRATION: merged master→instance-b; everything wired.**
+  The whole project now lives in one tree (A's signals/FS/conformal + B's
+  correction/verifier/judge). Conflict calls: `types.py` kept the shared
+  TYPE_CHECKING fix; `models/hf_vlm.py` took master's (A's territory); the three
+  append-only logs were concatenated (both instances' entries kept). Tests
+  recalibrated to A's graded `MockVLM` (binary `grounded` → graded `ground_strength`
+  reliance): image-blind→abstention threshold 0.8→0.7; distill test now asserts
+  reliance-monotone selection; A's `test_full_benchmark` flipped to assert the real
+  correction path (correction is now present, not the identity fallback). 93 tests.
+
+
+- **[B] 2026-07-04 — Verifier headline is the REAL-signal result, not the stub.**
+  On A's real `score_dataset` signals via `training/adapter.py`, the learned GBT on
+  weak labels beats the heuristic fusion **0.816 vs 0.768 (+0.048)** — RQ5 positive,
+  no injected noise needed. On my `training.signals` STUB (counterfactual-only weak
+  label) the learned head only *matched* the heuristic on the graded mock; that path
+  is retained for offline dev but the thesis reports the real-signal number
+  (`train_verifier.py --source real` → `verifier_benchmark_real.json`). The stub
+  noise-sweep is now a secondary robustness illustration, not the claim.
+
+
+- **[B] 2026-07-04 — Gate-feasibility finding handed to [A].** The deployed
+  (post-correction fused FS) conformal gate is **infeasible at α=0.05** but
+  **feasible at α≥0.10**, because correction inflates FS (0.40→0.55) and at the
+  strictest target the gate can't guarantee ≤5% error without retaining nothing
+  (threshold→∞). Pre-correction gate is feasible at 0.05. This is a calibration-
+  target property, not a bug — [A]: use α≈0.10 as the headline for the deployed gate
+  and report the full risk–coverage frontier; optionally add a correction-aware
+  recalibration. Reproduce: `run_fmr_full.run([...], alpha=0.05 vs 0.10)`.
+
+
+- **[B] 2026-07-04 — MedGemma real-model result is INVALID (adapter issue), Qwen is
+  the validated real model.** MedGemma-4b-it produced `fs=0.0`, acc≈0.475 (random),
+  0 answer flips across all margins → its answer distribution is *image-invariant*
+  through the `RealAnswerVLM` teacher-forced choice-scoring adapter: the Gemma-3
+  processor/chat-template isn't binding the image the way Qwen's does, so the model
+  scores choices from text alone. bfloat16 fixed the earlier NaN but not the image
+  binding. Not debuggable without a GPU. **Decision:** report Qwen2.5-VL-3B as the
+  validated real base model and the two mock backends for model-agnosticism of the
+  FMR *layer*; MedGemma integration is flagged future work (needs a Gemma-3-specific
+  input path). Added an image-sensitivity self-check to the notebook so any future
+  run surfaces `fs≈0` immediately instead of silently reporting it.
+
+---
+
+<!-- ============================================================= -->
+<!-- Merged from Instance A (master) at instance-b<-master merge   -->
+<!-- ============================================================= -->
+
