@@ -1,0 +1,12 @@
+{
+  "dataset": "slake",
+  "reasoning": "medvlm_r1",
+  "non_reasoning": "qwen25_vl_3b",
+  "max_samples": 300,
+  "n_consistency": 5,
+  "status": {
+    "baselines": "ok",
+    "blind_test": "ok",
+    "fmr": "ok"
+  }
+}
