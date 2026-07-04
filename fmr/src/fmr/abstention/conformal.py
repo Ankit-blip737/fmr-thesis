@@ -123,49 +123,85 @@ def evaluate_selective(scores: np.ndarray, correct: np.ndarray, threshold: float
     }
 
 
+def _tie_aware_expected_error(scores: np.ndarray, correct: np.ndarray) -> np.ndarray:
+    """Per-position EXPECTED error after answering highest-scored first, honest
+    about ties.
+
+    A deferral trigger cannot distinguish samples that share the same score, so
+    the order *within* a tied group is arbitrary. Breaking ties by array index
+    (what ``argsort`` does) fabricates a specific curve — e.g. a CONSTANT signal
+    (all scores equal) would otherwise get a meaningful-looking AURC purely from
+    input order. We instead replace each sample's correctness with the MEAN
+    correctness of its equal-score group, so any prefix that cuts a tied group
+    contributes that group's expected error. Consequence: a constant signal
+    yields a flat risk = base error at every coverage (AURC = base error),
+    correctly reading as "no discrimination". Returns the per-position expected
+    error along the score-descending order.
+    """
+    order = np.argsort(-scores, kind="stable")
+    s_sorted = scores[order]
+    c_sorted = correct[order].astype(float)
+    eff = c_sorted.copy()
+    i = 0
+    n = len(s_sorted)
+    while i < n:
+        j = i
+        while j < n and s_sorted[j] == s_sorted[i]:
+            j += 1
+        eff[i:j] = c_sorted[i:j].mean()   # expected correctness within the tie group
+        i = j
+    return 1.0 - eff                       # expected error per position
+
+
 def risk_at_coverage(scores: np.ndarray, correct: np.ndarray, coverage: float) -> float:
-    """Retained error when answering the top-``coverage`` fraction by score."""
+    """Expected retained error when answering the top-``coverage`` fraction
+    (tie-aware — see :func:`_tie_aware_expected_error`)."""
     scores = np.asarray(scores, dtype=float)
     correct = np.asarray(correct, dtype=int)
     n = len(scores)
+    if n == 0:
+        return float("nan")
     k = max(1, int(round(coverage * n)))
-    order = np.argsort(-scores)[:k]
-    return float(1.0 - correct[order].mean())
+    err = _tie_aware_expected_error(scores, correct)
+    return float(err[:k].mean())
 
 
 def coverage_at_risk(scores: np.ndarray, correct: np.ndarray, target_risk: float) -> float:
-    """Max coverage (answer highest-scored first) whose retained error <= target.
-
-    Empirical operating-point metric (no calibration guarantee) — the standard
-    selective-prediction way to compare deferral triggers head-to-head.
-    """
+    """Max coverage (answer highest-scored first, tie-aware) whose expected
+    retained error <= target. Standard selective-prediction operating metric."""
     scores = np.asarray(scores, dtype=float)
     correct = np.asarray(correct, dtype=int)
     n = len(scores)
-    order = np.argsort(-scores)
-    sorted_correct = correct[order]
-    errors = 0
+    if n == 0:
+        return 0.0
+    err = _tie_aware_expected_error(scores, correct)
+    cum = np.cumsum(err)
     best_cov = 0.0
     for i in range(n):
-        errors += 1 - sorted_correct[i]
-        risk = errors / (i + 1)
-        if risk <= target_risk:
+        if cum[i] / (i + 1) <= target_risk:
             best_cov = (i + 1) / n
     return float(best_cov)
 
 
 def risk_coverage_curve(scores: np.ndarray, correct: np.ndarray) -> dict:
-    """Risk-coverage trade-off swept over all thresholds (for plotting/AURC)."""
+    """Risk-coverage trade-off swept over all thresholds (for plotting/AURC),
+    tie-aware so constant/degenerate scores read as no-discrimination.
+
+    Also reports ``n_distinct`` and ``degenerate`` (a single distinct score) so
+    callers can label a non-discriminative trigger instead of showing a
+    misleading tie-order-artifact AURC.
+    """
     scores = np.asarray(scores, dtype=float)
     correct = np.asarray(correct, dtype=int)
-    order = np.argsort(-scores)  # answer highest-scored cases first
-    sorted_correct = correct[order]
     n = len(scores)
+    err = _tie_aware_expected_error(scores, correct)
     coverages, risks = [], []
-    errors = 0
+    cum = 0.0
     for i in range(n):
-        errors += 1 - sorted_correct[i]
+        cum += err[i]
         coverages.append((i + 1) / n)
-        risks.append(errors / (i + 1))
+        risks.append(cum / (i + 1))
     aurc = float(np.trapezoid(risks, coverages)) if n > 1 else float("nan")
-    return {"coverage": coverages, "risk": risks, "aurc": aurc}
+    return {"coverage": coverages, "risk": risks, "aurc": aurc,
+            "n_distinct": int(len(np.unique(scores))),
+            "degenerate": bool(len(np.unique(scores)) <= 1)}

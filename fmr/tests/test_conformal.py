@@ -84,6 +84,38 @@ def test_coverage_at_risk_and_risk_at_coverage():
     assert abs(risk_at_coverage(scores, correct, 1.0) - (1 - correct.mean())) < 1e-9
 
 
+def test_constant_signal_is_non_discriminative():
+    """A constant (degenerate) score must NOT get a fabricated AURC from tie
+    order — it should read as no-discrimination: flat risk = base error, AURC =
+    base error, degenerate flag set."""
+    from fmr.abstention import coverage_at_risk, risk_at_coverage, risk_coverage_curve
+    rng = np.random.default_rng(0)
+    correct = (rng.uniform(0, 1, 20) < 0.25).astype(int)   # base error 0.75-ish
+    const = np.full(20, 0.5)
+    rc = risk_coverage_curve(const, correct)
+    base_err = 1 - correct.mean()
+    assert rc["degenerate"] is True and rc["n_distinct"] == 1
+    # flat risk at base error at every coverage (the key no-discrimination invariant)
+    assert all(abs(r - base_err) < 1e-9 for r in rc["risk"])
+    # AURC of a flat curve = base_err x coverage-range (1 - 1/n), not base_err itself
+    assert abs(rc["aurc"] - base_err * (1 - 1 / len(correct))) < 1e-9
+    assert abs(risk_at_coverage(const, correct, 0.2) - base_err) < 1e-9
+    # can't beat base error at a target below it => zero coverage
+    assert coverage_at_risk(const, correct, base_err - 0.1) == 0.0
+
+
+def test_tie_order_independence():
+    """AURC must not depend on input ordering (no argsort-index artifact)."""
+    from fmr.abstention import risk_coverage_curve
+    rng = np.random.default_rng(1)
+    scores = rng.choice([0.2, 0.5, 0.8], size=60)   # heavy ties
+    correct = (rng.uniform(0, 1, 60) < 0.5).astype(int)
+    a = risk_coverage_curve(scores, correct)["aurc"]
+    perm = rng.permutation(60)
+    b = risk_coverage_curve(scores[perm], correct[perm])["aurc"]
+    assert abs(a - b) < 1e-9
+
+
 def test_better_scores_lower_aurc():
     rng = np.random.default_rng(3)
     scores, correct = _world(2000, rng)

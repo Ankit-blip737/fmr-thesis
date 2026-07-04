@@ -11,12 +11,12 @@
     "alpha": 0.15,
     "delta": 0.05,
     "provisional_pre_correction": true,
+    "recomputed_tie_aware": true,
     "fs": {
       "threshold": Infinity,
       "feasible": false,
       "cal_coverage": 0.0,
       "cal_error": 0.0,
-      "cal_error_ucb": 1.0,
       "test": {
         "coverage": 0.0,
         "n_retained": 0,
@@ -69,16 +69,16 @@
           0.7777777777777778,
           0.7368421052631579,
           0.75
-        ],
-        "aurc": 0.7485732091266147
-      }
+        ]
+      },
+      "n_distinct": 20,
+      "degenerate": false
     },
     "confidence": {
       "threshold": Infinity,
       "feasible": false,
       "cal_coverage": 0.0,
       "cal_error": 0.0,
-      "cal_error_ucb": 1.0,
       "test": {
         "coverage": 0.0,
         "n_retained": 0,
@@ -131,16 +131,16 @@
           0.7222222222222222,
           0.7368421052631579,
           0.75
-        ],
-        "aurc": 0.7678192408726464
-      }
+        ]
+      },
+      "n_distinct": 20,
+      "degenerate": false
     },
     "signal_a_only": {
       "threshold": Infinity,
       "feasible": false,
       "cal_coverage": 0.0,
       "cal_error": 0.0,
-      "cal_error_ucb": 1.0,
       "test": {
         "coverage": 0.0,
         "n_retained": 0,
@@ -193,16 +193,16 @@
           0.7777777777777778,
           0.7368421052631579,
           0.75
-        ],
-        "aurc": 0.7485732091266147
-      }
+        ]
+      },
+      "n_distinct": 20,
+      "degenerate": false
     },
     "signal_b_only": {
       "threshold": Infinity,
       "feasible": false,
       "cal_coverage": 0.0,
       "cal_error": 0.0,
-      "cal_error_ucb": 1.0,
       "test": {
         "coverage": 0.0,
         "n_retained": 0,
@@ -210,7 +210,7 @@
         "retained_error": NaN
       },
       "guarantee_holds": true,
-      "aurc": 0.6711922567456624,
+      "aurc": 0.7124999999999999,
       "risk_coverage": {
         "coverage": [
           0.05,
@@ -235,36 +235,36 @@
           1.0
         ],
         "risk": [
-          0.0,
-          0.5,
-          0.6666666666666666,
           0.75,
-          0.8,
-          0.8333333333333334,
-          0.7142857142857143,
           0.75,
-          0.6666666666666666,
-          0.7,
-          0.7272727272727273,
           0.75,
-          0.7692307692307693,
-          0.7142857142857143,
-          0.7333333333333333,
           0.75,
-          0.7647058823529411,
-          0.7222222222222222,
-          0.7368421052631579,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
           0.75
-        ],
-        "aurc": 0.6711922567456624
-      }
+        ]
+      },
+      "n_distinct": 1,
+      "degenerate": true
     },
     "signal_c_only": {
       "threshold": Infinity,
       "feasible": false,
       "cal_coverage": 0.0,
       "cal_error": 0.0,
-      "cal_error_ucb": 1.0,
       "test": {
         "coverage": 0.0,
         "n_retained": 0,
@@ -272,7 +272,7 @@
         "retained_error": NaN
       },
       "guarantee_holds": true,
-      "aurc": 0.6711922567456624,
+      "aurc": 0.7124999999999999,
       "risk_coverage": {
         "coverage": [
           0.05,
@@ -297,29 +297,30 @@
           1.0
         ],
         "risk": [
-          0.0,
-          0.5,
-          0.6666666666666666,
           0.75,
-          0.8,
-          0.8333333333333334,
-          0.7142857142857143,
           0.75,
-          0.6666666666666666,
-          0.7,
-          0.7272727272727273,
           0.75,
-          0.7692307692307693,
-          0.7142857142857143,
-          0.7333333333333333,
           0.75,
-          0.7647058823529411,
-          0.7222222222222222,
-          0.7368421052631579,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
+          0.75,
           0.75
-        ],
-        "aurc": 0.6711922567456624
-      }
+        ]
+      },
+      "n_distinct": 1,
+      "degenerate": true
     }
   },
   "per_modality": {

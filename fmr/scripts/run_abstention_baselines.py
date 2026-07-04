@@ -72,6 +72,11 @@ def _metrics(records: list[dict]) -> dict:
         rc = risk_coverage_curve(scores, correct)
         out["triggers"][name] = {
             "aurc": rc["aurc"],
+            "n_distinct": rc["n_distinct"],
+            # A degenerate (constant) score cannot discriminate — flag it so the
+            # dashboard labels it "no discrimination" rather than showing a
+            # tie-order-artifact AURC as if it were a real ranking result.
+            "degenerate": rc["degenerate"],
             "coverage_at_risk": {f"{t:.2f}": coverage_at_risk(scores, correct, t) for t in RISK_TARGETS},
             "risk_at_coverage": {f"{c:.2f}": risk_at_coverage(scores, correct, c) for c in COV_GRID},
             "curve": _downsample_curve(rc),   # points for the dashboard overlay
@@ -81,13 +86,17 @@ def _metrics(records: list[dict]) -> dict:
         f"{c:.2f}": {t: out["triggers"][t]["risk_at_coverage"][f"{c:.2f}"] for t in out["triggers"]}
         for c in COV_GRID
     }
-    # Rank triggers by AURC (lower better); note whether FS wins.
-    ranked = sorted(out["triggers"].items(), key=lambda kv: kv[1]["aurc"])
+    # Rank ONLY non-degenerate (discriminating) triggers by AURC (lower better).
+    # A constant/degenerate signal has AURC ~ base error from no discrimination,
+    # not from a real ranking — including it would spuriously crown it "best".
+    live = {k: v for k, v in out["triggers"].items() if not v.get("degenerate")}
+    ranked = sorted(live.items(), key=lambda kv: kv[1]["aurc"])
     out["ranking_by_aurc"] = [k for k, _ in ranked]
-    if "fs_ours" in out["triggers"]:
-        out["fs_is_best_aurc"] = ranked[0][0] == "fs_ours"
+    out["degenerate_triggers"] = [k for k, v in out["triggers"].items() if v.get("degenerate")]
+    if "fs_ours" in live:
+        out["fs_is_best_aurc"] = bool(ranked and ranked[0][0] == "fs_ours")
         out["fs_vs_confidence_aurc_delta"] = (
-            out["triggers"]["fs_ours"]["aurc"] - out["triggers"].get("confidence", {}).get("aurc", float("nan")))
+            live["fs_ours"]["aurc"] - live.get("confidence", {}).get("aurc", float("nan")))
     return out
 
 
