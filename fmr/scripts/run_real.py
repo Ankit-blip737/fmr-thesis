@@ -74,14 +74,22 @@ def _write_configs(dataset: str, model_key: str, reasoning: str, non_reasoning: 
 
 
 def _load_existing_status(out: str) -> dict:
-    """Load run_status.json if it exists, else return empty dict."""
+    """Load run_status.json if it exists; otherwise infer from output files."""
     p = Path(out) / "run_status.json"
     if p.exists():
         try:
             return json.loads(p.read_text()).get("status", {})
         except Exception:
             pass
-    return {}
+    # Infer from files if status JSON is missing (e.g. crashed mid-run)
+    status = {}
+    if (Path(out) / "baselines.json").exists():
+        status["baselines"] = "ok"
+    if (Path(out) / "blind_test.json").exists():
+        status["blind_test"] = "ok"
+    if (Path(out) / "fmr_results.json").exists():
+        status["fmr"] = "ok"
+    return status
 
 
 def main() -> None:

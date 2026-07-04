@@ -74,6 +74,9 @@ def _collect_snapshot(d: Path, label: str, kind: str) -> dict | None:
     status = _load(d / "run_status.json")
     if status is not None:
         snap["run_status"] = status
+    integ = _load(d / "adapter_integration.json")
+    if integ is not None:
+        snap["adapter_integration"] = integ
     snap["fs_threshold"] = _threshold_for(snap.get("fmr_results"))
     return snap if found else None
 
@@ -93,12 +96,22 @@ def build(outputs_dir: str | Path = None) -> Path:
             if snap:
                 sources[f"real:{d.name}"] = snap
 
+    # Top-level artifact spanning multiple sources (mock + real) in one file.
+    abst = _load(out / "abstention_baselines.json")
+
+    # Default to the most-populated real source (has fmr_results/records), so the
+    # dashboard opens on a source that actually has the full pipeline to show —
+    # not a real source that only ran baselines+blind.
+    def _richness(s: dict) -> int:
+        return sum(k in s for k in ("fmr_results", "records", "full_benchmark")) + (2 if s["kind"] == "real" else 0)
+    default_source = max(sources, key=lambda k: _richness(sources[k])) if sources else None
+
     bundle = {
         "generated_at": _dt.datetime.now().isoformat(timespec="seconds"),
         "has_real": any(s["kind"] == "real" for s in sources.values()),
-        "default_source": next((k for k, s in sources.items() if s["kind"] == "real"),
-                               "mock" if "mock" in sources else (next(iter(sources), None))),
+        "default_source": default_source,
         "sources": sources,
+        "abstention_baselines": abst,   # {sources: {mock, real:vqa_rad, ...}}
     }
 
     _DASH.mkdir(parents=True, exist_ok=True)
@@ -109,8 +122,22 @@ def build(outputs_dir: str | Path = None) -> Path:
         encoding="utf-8",
     )
     kb = data_js.stat().st_size / 1024
+
+    # Stamp a fresh version query on the asset URLs so a rebuild always forces the
+    # browser to refetch data.js/app.js/style.css (defeats stale-cache — the one
+    # dashboard footgun we keep hitting). Only the ?v=<epoch> changes.
+    import re
+    import time
+    index = _DASH / "index.html"
+    if index.exists():
+        ver = int(time.time())
+        html = index.read_text(encoding="utf-8")
+        html = re.sub(r'(href="style\.css)(\?v=\d+)?"', rf'\1?v={ver}"', html)
+        html = re.sub(r'(src="(?:data|app)\.js)(\?v=\d+)?"', rf'\1?v={ver}"', html)
+        index.write_text(html, encoding="utf-8")
+
     print(f"[dashboard] wrote {data_js} ({kb:.0f} KB) — sources: {list(sources)}"
-          f" | has_real={bundle['has_real']}")
+          f" | has_real={bundle['has_real']} | default={default_source}")
     return data_js
 
 

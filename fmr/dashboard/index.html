@@ -3,8 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Prevent stale-cache of the generated data/app assets on any http host
+       (GitHub Pages / local server). data.js is regenerated every build. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>FMR — Faithful Medical Reasoning</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=1783163051" />
 </head>
 <body>
   <header class="topbar">
@@ -52,6 +57,7 @@
           <p>A calibrated, faithfulness-triggered abstention gate is a new safety layer for that failure mode.</p>
         </div>
       </div>
+      <div id="data-caveat"></div>
       <div id="stat-cards" class="cards"></div>
       <p class="note" id="provenance"></p>
     </section>
@@ -112,6 +118,20 @@
           </figure>
         </div>
       </div>
+
+      <figure class="chart-card" style="margin-top:18px">
+        <figcaption>Abstention triggers head-to-head — risk vs coverage <span id="baselines-src" class="src-tag"></span></figcaption>
+        <div class="grid-2">
+          <div>
+            <div id="chart-baselines"></div>
+            <p class="cap">Overlaid risk–coverage curves: our fused FS vs confidence / self-consistency / RadFlag / single signals, on the <em>same</em> test set. Lower is better.</p>
+          </div>
+          <div>
+            <div id="baselines-table"></div>
+            <p class="cap">Retained error at matched coverage. Per proposal §9 this is a reported comparison, not a guaranteed win — small/weak real sets can show no separation.</p>
+          </div>
+        </div>
+      </figure>
     </section>
 
     <!-- EXPLORER -->
@@ -164,7 +184,7 @@
     </footer>
   </main>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="data.js?v=1783163051"></script>
+  <script src="app.js?v=1783163051"></script>
 </body>
 </html>

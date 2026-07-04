@@ -138,6 +138,30 @@
     ];
     $("#stat-cards").innerHTML = cards.map(c => `<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="s">${c.s}</div></div>`).join("");
     $("#provenance").textContent = `Source: ${src.label || "—"} · dataset "${fr.dataset || bt.dataset || "?"}" · bundle generated ${DATA.generated_at || "?"}`;
+
+    // Honest data-source caveat banner — never let polish imply false authority.
+    const cav = $("#data-caveat");
+    if (src.kind === "real") {
+      const n = fr.n_test ?? (src.records ? src.records.length : "?");
+      const integ = src.adapter_integration || {};
+      const notes = [];
+      if (typeof n === "number" && n < 60) notes.push(`small real test set (n=${n}) — numbers are noisy`);
+      if (integ.schema && integ.schema.signal_b_constant) notes.push("Signal B is constant (real attention-region extraction pending) — fusion uses A+C only");
+      if (integ.calibration && integ.calibration["alpha_0.05"] && !integ.calibration["alpha_0.05"].feasible)
+        notes.push("conformal gate infeasible at α=0.05 on this set (needs more calibration data)");
+      cav.className = "caveat real";
+      cav.innerHTML = `<span class="icon">🟢</span><div><b>REAL model data</b> (${src.label}). ` +
+        (notes.length ? "Caveats: " + notes.join("; ") + "." : "") + `</div>`;
+    } else {
+      cav.className = "caveat mock";
+      cav.innerHTML = `<span class="icon">🟡</span><div><b>MOCK / synthetic data</b> — validates the machinery (signal directionality, fusion, guarantee) on a known latent. NOT a real-model result; empirical claims come from the real sources.</div>`;
+    }
+  }
+
+  function _srcTag(src) {
+    return src.kind === "real"
+      ? `<span class="src-tag real">real · ${(src.label||'').replace('Real — ','')}</span>`
+      : `<span class="src-tag mock">mock</span>`;
   }
 
   function renderDiagnosis(src) {
@@ -251,14 +275,60 @@
       <div class="row"><span>Feasible / guarantee holds</span><b>${g.feasible ? "yes" : "no"} / ${hold ? "✓" : "✕"}</b></div>
       ${ab.provisional_pre_correction ? `<p class="note" style="margin-top:8px">Provisional: pre-correction FS.</p>` : ""}`;
 
-    // per-modality
+    // per-modality (real per-modality data where it exists; labelled by source)
     const pm = (src.fmr_results || {}).per_modality || {};
     const mkeys = Object.keys(pm);
     $("#chart-modality").innerHTML = mkeys.length
       ? barChart(mkeys, [{ name: "accuracy", color: COL.primary, values: mkeys.map(m => pm[m].accuracy) },
           { name: "mean FS", color: COL.grounded, values: mkeys.map(m => pm[m].mean_fs) }], { yMin: 0, yMax: 1, valueLabels: false }) +
-        legend([{ label: "accuracy", color: COL.primary }, { label: "mean FS", color: COL.grounded }])
-      : `<p class="empty">No per-modality breakdown.</p>`;
+        legend([{ label: "accuracy", color: COL.primary }, { label: "mean FS", color: COL.grounded }].concat(
+          [{ label: src.kind === "real" ? "real per-modality" : "synthetic modalities", color: "#94a3b8" }]))
+      : `<p class="empty">No per-modality breakdown for this source.</p>`;
+
+    renderBaselines(src);
+  }
+
+  // Abstention head-to-head (proposal §8/§9): overlaid risk-coverage + matched
+  // coverage table, from the top-level abstention_baselines bundle for THIS source.
+  function renderBaselines(src) {
+    const tag = $("#baselines-src");
+    if (tag) tag.outerHTML = `<span id="baselines-src">${_srcTag(src)}</span>`;
+    const bundle = (DATA.abstention_baselines || {}).sources || {};
+    const m = bundle[STATE.source];
+    const chart = $("#chart-baselines"), table = $("#baselines-table");
+    if (!m || !m.triggers) {
+      chart.innerHTML = `<p class="empty">No baseline comparison for this source.</p>`;
+      table.innerHTML = ""; return;
+    }
+    const names = { fs_ours: ["FS (ours)", COL.fs, 2.6], confidence: ["confidence", COL.conf, 1.3],
+      self_consistency: ["self-consistency", COL.c, 1.3], radflag: ["RadFlag", "#a855f7", 1.1],
+      signal_a: ["Signal A", COL.a, 1], signal_b: ["Signal B", COL.b, 1] };
+    const series = [];
+    Object.entries(m.triggers).forEach(([k, v]) => {
+      if (!v.curve || !v.curve.coverage.length || !names[k]) return;
+      series.push({ name: `${names[k][0]} (AURC ${fmt(v.aurc, 3)})`, color: names[k][1], width: names[k][2],
+        dots: false, points: v.curve.coverage.map((c, i) => [c, v.curve.risk[i]]) });
+    });
+    chart.innerHTML = series.length
+      ? lineChart(series, { yMin: 0, yMax: 1, xlab: "coverage", ylab: "risk (error on answered)", xTicks: [0, 0.25, 0.5, 0.75, 1] }) +
+        legend(series.map(s => ({ label: s.name, color: s.color })))
+      : `<p class="empty">No curve data.</p>`;
+
+    // matched-coverage error table; lowest error per row highlighted.
+    const mce = m.matched_coverage_error || {};
+    const covs = Object.keys(mce);
+    const trigs = Object.keys(m.triggers);
+    if (covs.length) {
+      let html = `<table class="btab"><thead><tr><th>coverage</th>` +
+        trigs.map(t => `<th>${names[t] ? names[t][0] : t}</th>`).join("") + `</tr></thead><tbody>`;
+      covs.forEach(c => {
+        const row = mce[c]; const best = Math.min(...trigs.map(t => row[t]));
+        html += `<tr><td>${(+c).toFixed(2)}</td>` + trigs.map(t =>
+          `<td class="${row[t] === best ? "best" : ""}">${fmt(row[t], 3)}</td>`).join("") + `</tr>`;
+      });
+      html += `</tbody></table><p class="cap">n=${m.n}, base acc ${fmt(m.base_accuracy, 3)}. Green = lowest error at that coverage.</p>`;
+      table.innerHTML = html;
+    } else table.innerHTML = "";
   }
 
   function decisionFor(src, r) {
