@@ -150,3 +150,5 @@ gate). Open items needing you:
 ---
 
 
+
+- **[A] 2026-07-04 — GPU results landing mid-sequence (noted, NOT yet incorporated).** Colab pushed additional pathvqa baseline results (commit 840670c) while Steps 1–4 were in progress. Per instruction, merged for git cleanliness (data.js regenerated) but NOT deep-incorporated into the Step 1–4 analysis — will be handled as a dedicated follow-up pass after this sequence so nothing is half-updated. PathVQA still lacks real `fmr_records` (FMR stage hasn't completed on Colab), so the abstention head-to-head + verifier remain vqa_rad-only.
