@@ -123,6 +123,37 @@ def evaluate_selective(scores: np.ndarray, correct: np.ndarray, threshold: float
     }
 
 
+def risk_at_coverage(scores: np.ndarray, correct: np.ndarray, coverage: float) -> float:
+    """Retained error when answering the top-``coverage`` fraction by score."""
+    scores = np.asarray(scores, dtype=float)
+    correct = np.asarray(correct, dtype=int)
+    n = len(scores)
+    k = max(1, int(round(coverage * n)))
+    order = np.argsort(-scores)[:k]
+    return float(1.0 - correct[order].mean())
+
+
+def coverage_at_risk(scores: np.ndarray, correct: np.ndarray, target_risk: float) -> float:
+    """Max coverage (answer highest-scored first) whose retained error <= target.
+
+    Empirical operating-point metric (no calibration guarantee) — the standard
+    selective-prediction way to compare deferral triggers head-to-head.
+    """
+    scores = np.asarray(scores, dtype=float)
+    correct = np.asarray(correct, dtype=int)
+    n = len(scores)
+    order = np.argsort(-scores)
+    sorted_correct = correct[order]
+    errors = 0
+    best_cov = 0.0
+    for i in range(n):
+        errors += 1 - sorted_correct[i]
+        risk = errors / (i + 1)
+        if risk <= target_risk:
+            best_cov = (i + 1) / n
+    return float(best_cov)
+
+
 def risk_coverage_curve(scores: np.ndarray, correct: np.ndarray) -> dict:
     """Risk-coverage trade-off swept over all thresholds (for plotting/AURC)."""
     scores = np.asarray(scores, dtype=float)

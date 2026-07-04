@@ -203,6 +203,33 @@ def fig_abstention_power(abl: dict, fig_dir: Path) -> None:
     plt.close(fig)
 
 
+def fig_abstention_baselines(ab: dict, fig_dir: Path) -> None:
+    """Head-to-head AURC per abstention trigger, grouped by data source."""
+    srcs = ab.get("sources", {})
+    src_names = [s for s in srcs if srcs[s].get("triggers")]
+    if not src_names:
+        print("[figures] skip fig9: no abstention-baseline data")
+        return
+    trig_order = ["fs_ours", "confidence", "self_consistency", "radflag", "signal_a", "signal_b"]
+    trigs = [t for t in trig_order if any(t in srcs[s]["triggers"] for s in src_names)]
+    colors = {"fs_ours": "#16a34a", "confidence": "#f59e0b", "self_consistency": "#db2777",
+              "radflag": "#a855f7", "signal_a": "#6366f1", "signal_b": "#0e7490"}
+    x = np.arange(len(src_names)); w = 0.8 / max(1, len(trigs))
+    fig, ax = plt.subplots(figsize=(7, 4))
+    for j, t in enumerate(trigs):
+        vals = [srcs[s]["triggers"].get(t, {}).get("aurc", np.nan) for s in src_names]
+        ax.bar(x + j * w, vals, w, label=t, color=colors.get(t, "#888"))
+    ax.set_xticks(x + w * (len(trigs) - 1) / 2)
+    ax.set_xticklabels(src_names, rotation=10)
+    ax.set_ylabel("AURC (lower = better)")
+    ax.set_title("Abstention triggers head-to-head — FS (ours) vs confidence / self-consistency / RadFlag")
+    ax.legend(fontsize=8, ncol=3)
+    ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(fig_dir / "fig9_abstention_baselines.png", dpi=150)
+    plt.close(fig)
+
+
 def main(out_dir: str) -> None:
     out = Path(out_dir)
     fig_dir = ensure_dir(out / "figures")
@@ -211,6 +238,7 @@ def main(out_dir: str) -> None:
     records = _load(out, "fmr_records.json")
     full = _load(out, "full_benchmark.json")
     abl = _load(out, "ablations.json")
+    abst_base = _load(out, "abstention_baselines.json")
     if blind:
         fig_drift(blind, fig_dir)
         fig_blind(blind, fig_dir)
@@ -224,6 +252,8 @@ def main(out_dir: str) -> None:
     if abl:
         fig_weight_sensitivity(abl, fig_dir)
         fig_abstention_power(abl, fig_dir)
+    if abst_base:
+        fig_abstention_baselines(abst_base, fig_dir)
     print(f"[figures] wrote figures to {fig_dir}")
 
 

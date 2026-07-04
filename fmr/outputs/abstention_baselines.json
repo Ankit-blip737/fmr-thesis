@@ -1,0 +1,189 @@
+{
+  "risk_targets": [
+    0.05,
+    0.1,
+    0.2
+  ],
+  "coverage_targets": [
+    0.5,
+    0.8
+  ],
+  "sources": {
+    "mock": {
+      "n": 1000,
+      "base_accuracy": 0.741,
+      "triggers": {
+        "fs_ours": {
+          "aurc": 0.08263627073532176,
+          "coverage_at_risk": {
+            "0.05": 0.535,
+            "0.10": 0.611,
+            "0.20": 0.793
+          },
+          "risk_at_coverage": {
+            "0.5": 0.01200000000000001,
+            "0.8": 0.20499999999999996
+          }
+        },
+        "confidence": {
+          "aurc": 0.07963139059535045,
+          "coverage_at_risk": {
+            "0.05": 0.532,
+            "0.10": 0.613,
+            "0.20": 0.84
+          },
+          "risk_at_coverage": {
+            "0.5": 0.018000000000000016,
+            "0.8": 0.18625000000000003
+          }
+        },
+        "self_consistency": {
+          "aurc": 0.1135785332998273,
+          "coverage_at_risk": {
+            "0.05": 0.394,
+            "0.10": 0.521,
+            "0.20": 0.783
+          },
+          "risk_at_coverage": {
+            "0.5": 0.09399999999999997,
+            "0.8": 0.20499999999999996
+          }
+        },
+        "radflag": {
+          "aurc": 0.1135785332998273,
+          "coverage_at_risk": {
+            "0.05": 0.394,
+            "0.10": 0.521,
+            "0.20": 0.783
+          },
+          "risk_at_coverage": {
+            "0.5": 0.09399999999999997,
+            "0.8": 0.20499999999999996
+          }
+        },
+        "signal_a": {
+          "aurc": 0.08312387220312438,
+          "coverage_at_risk": {
+            "0.05": 0.535,
+            "0.10": 0.614,
+            "0.20": 0.796
+          },
+          "risk_at_coverage": {
+            "0.5": 0.016000000000000014,
+            "0.8": 0.20125000000000004
+          }
+        },
+        "signal_b": {
+          "aurc": 0.10267059460929337,
+          "coverage_at_risk": {
+            "0.05": 0.432,
+            "0.10": 0.487,
+            "0.20": 0.791
+          },
+          "risk_at_coverage": {
+            "0.5": 0.10799999999999998,
+            "0.8": 0.2025
+          }
+        }
+      },
+      "ranking_by_aurc": [
+        "confidence",
+        "fs_ours",
+        "signal_a",
+        "signal_b",
+        "self_consistency",
+        "radflag"
+      ],
+      "fs_is_best_aurc": false,
+      "fs_vs_confidence_aurc_delta": 0.0030048801399713138
+    },
+    "real:vqa_rad": {
+      "n": 20,
+      "base_accuracy": 0.25,
+      "triggers": {
+        "fs_ours": {
+          "aurc": 0.7485732091266147,
+          "coverage_at_risk": {
+            "0.05": 0.0,
+            "0.10": 0.0,
+            "0.20": 0.0
+          },
+          "risk_at_coverage": {
+            "0.5": 0.8,
+            "0.8": 0.75
+          }
+        },
+        "confidence": {
+          "aurc": 0.7678192408726464,
+          "coverage_at_risk": {
+            "0.05": 0.0,
+            "0.10": 0.0,
+            "0.20": 0.0
+          },
+          "risk_at_coverage": {
+            "0.5": 0.8,
+            "0.8": 0.75
+          }
+        },
+        "self_consistency": {
+          "aurc": 0.6711922567456624,
+          "coverage_at_risk": {
+            "0.05": 0.05,
+            "0.10": 0.05,
+            "0.20": 0.05
+          },
+          "risk_at_coverage": {
+            "0.5": 0.7,
+            "0.8": 0.75
+          }
+        },
+        "radflag": {
+          "aurc": 0.6711922567456624,
+          "coverage_at_risk": {
+            "0.05": 0.05,
+            "0.10": 0.05,
+            "0.20": 0.05
+          },
+          "risk_at_coverage": {
+            "0.5": 0.7,
+            "0.8": 0.75
+          }
+        },
+        "signal_a": {
+          "aurc": 0.7485732091266147,
+          "coverage_at_risk": {
+            "0.05": 0.0,
+            "0.10": 0.0,
+            "0.20": 0.0
+          },
+          "risk_at_coverage": {
+            "0.5": 0.8,
+            "0.8": 0.75
+          }
+        },
+        "signal_b": {
+          "aurc": 0.6711922567456624,
+          "coverage_at_risk": {
+            "0.05": 0.05,
+            "0.10": 0.05,
+            "0.20": 0.05
+          },
+          "risk_at_coverage": {
+            "0.5": 0.7,
+            "0.8": 0.75
+          }
+        }
+      },
+      "ranking_by_aurc": [
+        "self_consistency",
+        "radflag",
+        "signal_b",
+        "fs_ours",
+        "signal_a",
+        "confidence"
+      ],
+      "fs_is_best_aurc": false,
+      "fs_vs_confidence_aurc_delta": -0.019246031746031678
+    }
+  }
+}

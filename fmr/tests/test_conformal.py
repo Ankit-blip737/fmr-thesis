@@ -70,6 +70,20 @@ def test_risk_coverage_curve_shape():
     assert 0.0 <= rc["aurc"] <= 1.0
 
 
+def test_coverage_at_risk_and_risk_at_coverage():
+    from fmr.abstention import coverage_at_risk, risk_at_coverage
+    rng = np.random.default_rng(7)
+    scores, correct = _world(3000, rng)
+    # A stricter risk target permits no more coverage than a looser one.
+    c05 = coverage_at_risk(scores, correct, 0.05)
+    c20 = coverage_at_risk(scores, correct, 0.20)
+    assert 0.0 <= c05 <= c20 <= 1.0
+    # Answering fewer (higher-scored) cases yields lower risk than answering all.
+    assert risk_at_coverage(scores, correct, 0.3) <= risk_at_coverage(scores, correct, 1.0) + 1e-9
+    # risk@coverage=1.0 equals the overall error rate.
+    assert abs(risk_at_coverage(scores, correct, 1.0) - (1 - correct.mean())) < 1e-9
+
+
 def test_better_scores_lower_aurc():
     rng = np.random.default_rng(3)
     scores, correct = _world(2000, rng)

@@ -155,19 +155,87 @@ def bbox_to_region(bbox: list[float], image_width: float, image_height: float) -
                   (x + w) / image_width, (y + h) / image_height)
 
 
+# OmniMedVQA `modality_type` strings -> our canonical modality tags.
+_OMNI_MODALITY = {
+    "ct": "ct", "computed tomography": "ct",
+    "mr": "mri", "mri": "mri", "magnetic resonance": "mri",
+    "x-ray": "xray", "xray": "xray", "cxr": "xray",
+    "microscopy": "pathology", "histopath": "pathology", "pathology": "pathology",
+    "dermoscopy": "dermoscopy", "fundus": "fundus", "oct": "oct",
+    "ultrasound": "ultrasound", "endoscopy": "endoscopy",
+}
+
+
+def _omni_modality(raw: str) -> str:
+    t = (raw or "").lower()
+    for k, v in _OMNI_MODALITY.items():
+        if k in t:
+            return v
+    return "other"
+
+
 def _load_omnimedvqa(config: dict[str, Any]) -> list[Sample]:
-    """OmniMedVQA from a manually-downloaded local root (see BLOCKERS.md)."""
+    """OmniMedVQA from a manually-downloaded local root (see BLOCKERS.md).
+
+    Parses the open-access QA JSON layout: one or more ``*.json`` files (each a
+    list of records) anywhere under ``root``, with fields ``question``,
+    ``gt_answer``, ``option_A..D``, ``image_path``, ``modality_type`` (and
+    optionally ``dataset``/``question_id``). Multiple-choice, so every item is
+    "closed" with ``answer_choices`` set — clean metrics + a well-defined
+    held-out-modality split (12 modalities in the full set). ``image_path`` is
+    resolved against ``root`` (or ``image_root`` if the images live elsewhere).
+    """
     root = config.get("root")
     if not root or not Path(root).exists():
         raise FileNotFoundError(
             f"OmniMedVQA not found at root={root!r}. Download the open-access subset "
             "and set data.yaml:omnimedvqa.root. (Gated distribution — see BLOCKERS.md.)"
         )
-    raise NotImplementedError(
-        "OmniMedVQA local parser stub: iterate the JSON QA files under root, map "
-        "image_path/question/gt_answer/option_* to Sample, tag modality from the "
-        "dataset's 'Modality_Type' field. Fill in once the download is present."
-    )
+    import json
+
+    root = Path(root)
+    image_root = Path(config.get("image_root", root))
+    max_samples = config.get("max_samples")
+    modalities_filter = config.get("modalities")  # optional list to restrict to
+
+    qa_files = sorted(p for p in root.rglob("*.json") if "image" not in p.name.lower())
+    samples: list[Sample] = []
+    for qf in qa_files:
+        try:
+            records = json.loads(qf.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(records, dict):
+            records = records.get("data", records.get("questions", []))
+        for i, row in enumerate(records):
+            opts = [row[k] for k in ("option_A", "option_B", "option_C", "option_D")
+                    if row.get(k) not in (None, "")]
+            gt = _norm_answer(row.get("gt_answer") or row.get("answer") or "")
+            modality = _omni_modality(row.get("modality_type") or row.get("modality") or "")
+            if modalities_filter and modality not in modalities_filter:
+                continue
+            img_rel = row.get("image_path") or row.get("image")
+            img = str(image_root / img_rel) if img_rel else None
+            qid = row.get("question_id") or f"{qf.stem}-{i}"
+            samples.append(
+                Sample(
+                    sample_id=f"omnimedvqa-{qid}",
+                    question=str(row.get("question", "")),
+                    answer=gt,
+                    modality=modality,
+                    image=img,
+                    gt_region=None,
+                    answer_choices=[_norm_answer(o) for o in opts] or None,
+                    meta={"source": "omnimedvqa", "closed": bool(opts),
+                          "dataset": row.get("dataset"), "modality_type": row.get("modality_type"),
+                          "answer_type": "CLOSED" if opts else "OPEN"},
+                )
+            )
+            if max_samples and len(samples) >= int(max_samples):
+                return samples
+    if not samples:
+        raise ValueError(f"OmniMedVQA root {root} had no parseable QA JSON records.")
+    return samples
 
 
 def split_dataset(

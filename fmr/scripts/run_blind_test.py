@@ -68,7 +68,13 @@ def _replication_verdict(results: dict) -> dict:
             verdict["blind_gap_reasoning"] = rg
             verdict["blind_gap_nonreasoning"] = pg
             verdict["blind_gap_delta"] = rg - pg           # <0 => reasoning less grounded
-            blind_supports = rg < pg - 1e-6
+            # Guard: if BOTH gaps are ~0 or negative, neither model relies on the
+            # image — a smaller reasoning gap is then NOT evidence of "reasoning
+            # less grounded", it's just noise on two image-independent models.
+            _EPS = 0.03
+            both_image_independent = (rg <= _EPS and pg <= _EPS)
+            verdict["both_image_independent"] = both_image_independent
+            blind_supports = (rg < pg - 1e-6) and not both_image_independent
             verdict["blind_gap_supports"] = blind_supports
             # Accuracy confound flag.
             ra = (r.get("accuracy") or {}).get("original")
@@ -98,6 +104,13 @@ def _replication_verdict(results: dict) -> dict:
         verdict["note"] = (f"SUPPORTED via blind-gap: reasoning model relies on the image less "
                            f"(gap {verdict.get('blind_gap_reasoning'):.3f} < {verdict.get('blind_gap_nonreasoning'):.3f}){conf}"
                            + ("" if has_drift else "; per-step drift pending attention instrumentation"))
+    elif verdict.get("both_image_independent"):
+        verdict["replicated"] = False
+        verdict["primary_evidence"] = "blind_gap"
+        verdict["note"] = (f"NOT a grounding effect: BOTH models are image-independent on this "
+                           f"dataset (blind_gap reasoning {verdict.get('blind_gap_reasoning'):.3f}, "
+                           f"non-reasoning {verdict.get('blind_gap_nonreasoning'):.3f} — both ≤ 0.03). "
+                           f"The dataset is answerable from language priors; the smaller reasoning gap is noise, not evidence.")
     elif blind_supports is False:
         verdict["replicated"] = False
         verdict["primary_evidence"] = "blind_gap"
