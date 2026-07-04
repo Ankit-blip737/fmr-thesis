@@ -46,6 +46,20 @@ TRIGGERS = {
 }
 RISK_TARGETS = [0.05, 0.10, 0.20]
 COV_TARGETS = [0.5, 0.8]
+# Common coverage grid for the matched-coverage head-to-head table (proposal §9).
+COV_GRID = [0.2, 0.4, 0.6, 0.8, 1.0]
+
+
+def _downsample_curve(rc: dict, k: int = 40) -> dict:
+    """Thin the risk-coverage curve to <=k points for a compact JSON the
+    dashboard can plot without smoothing over the real (possibly jagged) shape."""
+    cov, risk = rc["coverage"], rc["risk"]
+    n = len(cov)
+    if n <= k:
+        idx = list(range(n))
+    else:
+        idx = sorted(set(int(round(i * (n - 1) / (k - 1))) for i in range(k)))
+    return {"coverage": [round(cov[i], 4) for i in idx], "risk": [round(risk[i], 4) for i in idx]}
 
 
 def _metrics(records: list[dict]) -> dict:
@@ -59,8 +73,14 @@ def _metrics(records: list[dict]) -> dict:
         out["triggers"][name] = {
             "aurc": rc["aurc"],
             "coverage_at_risk": {f"{t:.2f}": coverage_at_risk(scores, correct, t) for t in RISK_TARGETS},
-            "risk_at_coverage": {f"{c:.1f}": risk_at_coverage(scores, correct, c) for c in COV_TARGETS},
+            "risk_at_coverage": {f"{c:.2f}": risk_at_coverage(scores, correct, c) for c in COV_GRID},
+            "curve": _downsample_curve(rc),   # points for the dashboard overlay
         }
+    # Matched-coverage error table: {coverage -> {trigger -> retained error}}.
+    out["matched_coverage_error"] = {
+        f"{c:.2f}": {t: out["triggers"][t]["risk_at_coverage"][f"{c:.2f}"] for t in out["triggers"]}
+        for c in COV_GRID
+    }
     # Rank triggers by AURC (lower better); note whether FS wins.
     ranked = sorted(out["triggers"].items(), key=lambda kv: kv[1]["aurc"])
     out["ranking_by_aurc"] = [k for k, _ in ranked]
