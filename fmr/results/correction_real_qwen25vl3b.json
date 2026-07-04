@@ -1,51 +1,53 @@
 {
   "model": "Qwen/Qwen2.5-VL-3B-Instruct",
   "n": 40,
-  "acc_before": 0.625,
-  "fs_before_mean": 0.20239878582947415,
+  "acc_before": 0.575,
+  "image_sensitivity_L1": 0.4080559744798249,
+  "adapter_conditions_on_image": true,
+  "fs_before_mean": 0.19584911984683281,
   "sweep": [
     {
       "vcd_margin": 0.0,
       "acc_after": 0.55,
-      "answers_changed": 5,
-      "fs_after_mean": 0.26461028763254635
+      "answers_changed": 3,
+      "fs_after_mean": 0.24068240066776894
     },
     {
       "vcd_margin": 0.25,
-      "acc_after": 0.575,
-      "answers_changed": 4,
-      "fs_after_mean": 0.26461028763254635
+      "acc_after": 0.55,
+      "answers_changed": 3,
+      "fs_after_mean": 0.24068240066776894
     },
     {
       "vcd_margin": 0.5,
-      "acc_after": 0.55,
-      "answers_changed": 3,
-      "fs_after_mean": 0.25211028763254634
+      "acc_after": 0.525,
+      "answers_changed": 2,
+      "fs_after_mean": 0.22818240066776893
     },
     {
       "vcd_margin": 1.0,
       "acc_after": 0.575,
-      "answers_changed": 2,
-      "fs_after_mean": 0.25211028763254634
+      "answers_changed": 0,
+      "fs_after_mean": 0.21568240066776895
     },
     {
       "vcd_margin": 2.0,
-      "acc_after": 0.6,
-      "answers_changed": 1,
-      "fs_after_mean": 0.23961028763254633
+      "acc_after": 0.575,
+      "answers_changed": 0,
+      "fs_after_mean": 0.21568240066776895
     },
     {
       "vcd_margin": null,
-      "acc_after": 0.625,
+      "acc_after": 0.575,
       "answers_changed": 0,
-      "fs_after_mean": 0.22711028763254631
+      "fs_after_mean": 0.21568240066776895
     }
   ],
   "safe_operating_point": {
-    "vcd_margin": null,
-    "acc_after": 0.625,
+    "vcd_margin": 1.0,
+    "acc_after": 0.575,
     "answers_changed": 0,
-    "fs_after_mean": 0.22711028763254631
+    "fs_after_mean": 0.21568240066776895
   },
-  "seconds": 2233.5
+  "seconds": 5675.7
 }

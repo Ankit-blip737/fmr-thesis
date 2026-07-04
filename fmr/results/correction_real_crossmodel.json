@@ -1,14 +1,14 @@
 {
   "Qwen/Qwen2.5-VL-3B-Instruct": {
-    "vcd_margin": null,
-    "acc_after": 0.625,
+    "vcd_margin": 1.0,
+    "acc_after": 0.575,
     "answers_changed": 0,
-    "fs_after_mean": 0.22711028763254631
+    "fs_after_mean": 0.21568240066776895
   },
   "google/medgemma-4b-it": {
-    "vcd_margin": 0.0,
-    "acc_after": 0.475,
+    "vcd_margin": 1.0,
+    "acc_after": 0.775,
     "answers_changed": 0,
-    "fs_after_mean": 0.0
+    "fs_after_mean": 0.3521257296360627
   }
 }
