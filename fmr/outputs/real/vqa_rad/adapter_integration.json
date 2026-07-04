@@ -1,0 +1,58 @@
+{
+  "dataset": "vqa_rad (real, MedVLM-R1)",
+  "splits": {
+    "train": 40,
+    "cal": 20,
+    "test": 20
+  },
+  "schema": {
+    "n": 20,
+    "schema_ok": true,
+    "n_feature_keys": 13,
+    "X_shape": [
+      20,
+      13
+    ],
+    "y_true_all_missing": true,
+    "y_weak_pos_rate": 0.6,
+    "signal_b_constant": true
+  },
+  "verifier": {
+    "heuristic": {
+      "weak_auroc": 1.0,
+      "correctness_auroc": 0.44
+    },
+    "learned": {
+      "logreg": {
+        "weak_auroc": 1.0,
+        "correctness_auroc": 0.38666666666666666
+      },
+      "gbt": {
+        "weak_auroc": 0.5,
+        "correctness_auroc": 0.5
+      }
+    },
+    "record_fs_correctness_auroc": 0.44
+  },
+  "calibration": {
+    "alpha_0.05": {
+      "feasible": false,
+      "threshold": null,
+      "cal_coverage": 0.0,
+      "test_coverage": 0.0,
+      "test_retained_error": null
+    },
+    "alpha_0.10": {
+      "feasible": false,
+      "threshold": null,
+      "cal_coverage": 0.0,
+      "test_coverage": 0.0,
+      "test_retained_error": null
+    }
+  },
+  "post_correction_wiring": {
+    "wiring_ok": true,
+    "fused_fs_example": 0.2137,
+    "note": "real correction pass on Qwen/MedVLM is GPU-bound (Colab)"
+  }
+}
