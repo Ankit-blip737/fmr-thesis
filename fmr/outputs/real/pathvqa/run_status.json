@@ -1,0 +1,12 @@
+{
+  "dataset": "pathvqa",
+  "reasoning": "medvlm_r1",
+  "non_reasoning": "qwen25_vl_3b",
+  "max_samples": 200,
+  "n_consistency": 3,
+  "status": {
+    "baselines": "ok",
+    "blind_test": "ok",
+    "fmr": "ok"
+  }
+}
