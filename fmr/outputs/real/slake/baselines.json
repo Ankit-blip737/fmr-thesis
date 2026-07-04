@@ -1,0 +1,27 @@
+{
+  "dataset": "slake",
+  "split": "test",
+  "n": 75,
+  "models": {
+    "medvlm_r1": {
+      "name": "JZPeterPan/MedVLM-R1",
+      "is_reasoning": true,
+      "accuracy": 0.26666666666666666,
+      "per_modality": {
+        "ct": 0.23255813953488372,
+        "mri": 0.625,
+        "xray": 0.20833333333333334
+      }
+    },
+    "qwen25_vl_3b": {
+      "name": "Qwen/Qwen2.5-VL-3B-Instruct",
+      "is_reasoning": false,
+      "accuracy": 0.6266666666666667,
+      "per_modality": {
+        "ct": 0.627906976744186,
+        "mri": 0.5,
+        "xray": 0.6666666666666666
+      }
+    }
+  }
+}
