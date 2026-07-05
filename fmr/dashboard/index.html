@@ -10,6 +10,35 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css?v=1783235562" />
+  <style id="live-styles">
+    /* ---- Live Demo tab (dynamic backend: Colab GPU via ngrok) ---- */
+    #view-live .live-grid{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:18px;align-items:start}
+    @media(max-width:820px){#view-live .live-grid{grid-template-columns:1fr}}
+    #view-live .live-lab{display:block;font-size:12px;color:var(--ink-soft);margin:2px 0 6px;font-weight:600}
+    #view-live .live-drop{display:block;border:1.5px dashed var(--line-strong);border-radius:var(--r-md);padding:22px;text-align:center;cursor:pointer;color:var(--ink-faint);background:var(--surface-2);transition:border-color .2s var(--ease),color .2s var(--ease)}
+    #view-live .live-drop:hover{border-color:var(--primary);color:var(--primary-ink)}
+    #view-live .live-drop.has{padding:8px;border-style:solid}
+    #view-live .live-drop-ic{font-size:26px;display:block;margin-bottom:6px}
+    #view-live #live-preview{max-width:100%;max-height:300px;border-radius:var(--r-sm);display:block;margin:0 auto}
+    #view-live .live-btn{margin-top:14px;width:100%;border:0;border-radius:10px;padding:11px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;background:var(--header-grad);box-shadow:var(--shadow);transition:transform .15s var(--ease),filter .15s var(--ease)}
+    #view-live .live-btn:hover{transform:translateY(-1px);filter:brightness(1.06)}
+    #view-live .live-btn:disabled{opacity:.6;cursor:progress;transform:none}
+    #view-live .live-loading{display:flex;flex-direction:column;align-items:center;gap:11px;padding:44px 20px;text-align:center}
+    #view-live .spinner{width:40px;height:40px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--primary);animation:live-spin .8s linear infinite}
+    @keyframes live-spin{to{transform:rotate(360deg)}}
+    #view-live .ll-t{font-weight:800;font-size:16px}
+    #view-live .ll-s{color:var(--ink-soft);font-size:13px;max-width:42ch}
+    #view-live .live-score{text-align:center;margin-bottom:14px}
+    #view-live .ls-num{font-size:46px;font-weight:800;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums}
+    #view-live .ls-lab{font-size:12px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+    #view-live .ls-track{position:relative;height:12px;border-radius:6px;background:var(--surface-2);margin:12px auto 0;max-width:360px}
+    #view-live .ls-fill{height:100%;border-radius:6px;transition:width .6s var(--ease)}
+    #view-live .ls-tau{position:absolute;top:-4px;width:2px;height:20px;background:var(--ink);opacity:.6}
+    #view-live .live-answer{margin-top:6px;font-size:15px}
+    #view-live .live-answer .lab{color:var(--ink-faint);font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin-right:6px}
+    #view-live .live-h{margin:16px 0 6px;font-size:13px;color:var(--ink-soft)}
+    #view-live .live-gate{margin-top:12px}
+  </style>
 </head>
 <body>
   <header class="topbar" id="topbar">
@@ -42,6 +71,7 @@
     <button class="tab" data-view="robustness"><span class="tnum">7</span>Robustness</button>
     <button class="tab" data-view="limitations"><span class="tnum">8</span>Limitations</button>
     <button class="tab" data-view="timeline"><span class="tnum">9</span>Timeline</button>
+    <button class="tab" data-view="live"><span class="tnum">▶</span>Live Demo</button>
     <span id="tab-indicator"></span>
   </nav>
 
@@ -181,6 +211,37 @@
       <h1 class="page-title">Project Timeline</h1>
       <p class="page-sub">What was tried and found, in order — drawn from the verification log.</p>
       <div class="timeline" id="timeline-list"></div>
+    </section>
+
+    <!-- ===== LIVE DEMO (dynamic backend) ===== -->
+    <section class="view" id="view-live" data-view="live">
+      <h1 class="page-title">Live Demo</h1>
+      <p class="page-sub">Upload a real scan and ask a clinical question. <strong>MedVLM-R1</strong> runs on a free
+        Colab GPU, FMR measures faithfulness across <strong>5 self-consistency passes</strong>, and the conformal
+        gate returns <strong>Answer</strong> or <strong>Abstain</strong> — the static benchmark's exact machinery, live.</p>
+      <div class="live-grid">
+        <div class="card live-input">
+          <div class="card-h">1 · Connect the GPU backend</div>
+          <label class="live-lab" for="live-api">ngrok API URL (printed by the Colab cell)</label>
+          <input class="searchbox" id="live-api" placeholder="https://xxxx-xx-xx-xx.ngrok-free.app" />
+          <div id="live-api-status" class="note" style="margin-top:6px"></div>
+
+          <div class="card-h" style="margin-top:20px">2 · Upload X-Ray &amp; ask</div>
+          <label class="live-drop" id="live-drop">
+            <input type="file" id="live-file" accept="image/*" hidden />
+            <div id="live-drop-inner"><span class="live-drop-ic">🩻</span><span>Click to choose an image</span></div>
+            <img id="live-preview" alt="selected scan" hidden />
+          </label>
+          <input class="searchbox" id="live-q" placeholder="e.g. Is there evidence of a pneumothorax?" style="margin-top:12px" />
+          <input class="searchbox" id="live-choices" placeholder="Optional choices, comma-separated (e.g. yes, no)" style="margin-top:8px" />
+          <button class="live-btn" id="live-run">Analyze on GPU →</button>
+        </div>
+        <div class="card live-output" id="live-result">
+          <p class="empty">Results appear here once you connect a backend and run an analysis.</p>
+        </div>
+      </div>
+      <p class="note" style="margin-top:14px">The backend is your own Colab notebook (see <code>fmr/colab_serve_api.py</code>);
+        the ngrok URL changes each session, so paste the current one above. Nothing is stored server-side.</p>
     </section>
 
     <footer class="foot">

@@ -516,11 +516,121 @@
   }
 
   /* ==================================================================
+     TAB: Live Demo  (dynamic — calls the Colab+ngrok FastAPI backend)
+     ================================================================== */
+  const LIVE = { file: null, bound: false };
+  const apiBase = () => (($("#live-api") || {}).value || "").trim().replace(/\/+$/, "");
+  // ngrok's free interstitial returns HTML unless this header is present.
+  const NGROK_HDR = { "ngrok-skip-browser-warning": "true" };
+
+  function liveSpinner() {
+    return `<div class="live-loading"><div class="spinner"></div>
+      <div class="ll-t">Loading…</div>
+      <div class="ll-s">GPU calculating 5 consistency passes — the first run also loads the model, so allow up to a minute or two on a free T4.</div></div>`;
+  }
+  function liveError(msg) {
+    return `<div class="caveat" style="border-color:var(--ungrounded);background:color-mix(in srgb,var(--ungrounded) 7%,var(--surface))">
+      <span class="icon">⚠</span><div>${msg}</div></div>`;
+  }
+  function liveResult(d) {
+    const C = COLORS(), ans = d.decision === "answer";
+    const sig = (name, val, color) => `<div class="sigbar"><span>${esc(name)}</span><span class="track"><span class="fill" style="width:${Math.round((val || 0) * 100)}%;background:${color}"></span></span><b>${fmt(val, 3)}</b></div>`;
+    const s = d.signals || {}, g = d.gate || {};
+    const tauPos = Math.round((Number.isFinite(g.threshold) ? g.threshold : 1) * 100);
+    const steps = d.reasoning_steps || [], sfs = d.fs_per_step || [];
+    const stepsHtml = steps.length ? `<h4 class="live-h">Reasoning chain (per-step faithfulness)</h4><ul class="steps">${steps.map((tx, i) => {
+      const v = sfs[i], col = v == null ? C.faint : (v > .5 ? C.grounded : v > .33 ? C.abstain : C.ungrounded);
+      return `<li><span>${esc(tx)}</span><span class="stepfs"><div style="width:${Math.round((v || 0) * 100)}%;background:${col}"></div></span></li>`;
+    }).join("")}</ul>` : "";
+    return `
+      <div class="live-score" data-tip="Fused Faithfulness Score (the FMR score). The gate answers only if FS ≥ τ.">
+        <div class="ls-num" style="color:${ans ? C.grounded : C.abstain}">${fmt(d.fmr_score, 3)}</div>
+        <div class="ls-lab">FMR score</div>
+        <div class="ls-track"><div class="ls-fill" style="width:${Math.round((d.fmr_score || 0) * 100)}%;background:${ans ? C.grounded : C.abstain}"></div>
+          <div class="ls-tau" style="left:${tauPos}%" title="gate threshold τ"></div></div>
+      </div>
+      <div class="decision ${ans ? "answer" : "abstain"}">${ans ? "✓ ANSWER" : "⚠ ABSTAIN → defer to clinician"}</div>
+      <div class="live-answer"><span class="lab">Model answer</span><b>${esc(String(d.model_answer))}</b></div>
+      <div class="sigbars" style="margin-top:14px">
+        ${sig("Signal A · counterfactual", s.counterfactual_A, C.a)}
+        ${sig("Signal B · grounding", s.grounding_B, C.b)}
+        ${sig("Signal C · consistency", s.consistency_C, C.c)}
+        ${sig("Fused FMR score", d.fmr_score, C.grounded)}
+        ${sig("Model confidence", d.confidence, C.abstain)}
+      </div>
+      <p class="note live-gate">Gate τ = ${Number.isFinite(g.threshold) ? fmt(g.threshold, 3) : "∞"} · α=${fmt(g.alpha, 2)} ·
+        ${g.certified ? "certified split-conformal bound" : esc(g.mode || "uncertified operating point")} ·
+        ${d.n_consistency} consistency passes · ${fmt(d.elapsed_seconds, 1)}s on ${esc(d.model || "GPU")}.</p>
+      ${stepsHtml}`;
+  }
+
+  function updateApiStatus() {
+    const s = $("#live-api-status"), v = apiBase();
+    if (!s) return;
+    if (!v) { s.textContent = "Not connected — paste the URL the Colab cell printed."; return; }
+    s.innerHTML = `Will POST to <b>${esc(v)}/analyze</b>. <button class="btn" id="live-ping" style="padding:2px 9px;margin-left:6px">Test /health</button>`;
+    const b = $("#live-ping"); if (b) b.onclick = pingHealth;
+  }
+  async function pingHealth() {
+    const s = $("#live-api-status"), v = apiBase();
+    if (!v) return;
+    s.innerHTML = "Pinging…";
+    try {
+      const r = await fetch(v + "/health", { headers: NGROK_HDR });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      s.innerHTML = `✅ Connected — model <b>${esc(j.model || "?")}</b>, weights ${j.model_loaded ? "loaded" : "will load on first request"}.`;
+    } catch (e) { s.innerHTML = `❌ Could not reach <b>${esc(v)}/health</b> — is the Colab cell still running?`; }
+  }
+  async function runLive() {
+    const out = $("#live-result"), v = apiBase();
+    const q = (($("#live-q") || {}).value || "").trim();
+    if (!v) { updateApiStatus(); out.innerHTML = liveError("Enter the ngrok API URL first (step 1)."); return; }
+    if (!LIVE.file) { out.innerHTML = liveError("Choose an image first (step 2)."); return; }
+    if (!q) { out.innerHTML = liveError("Type a question first (step 2)."); return; }
+    const btn = $("#live-run"); if (btn) { btn.disabled = true; btn.textContent = "Analyzing on GPU…"; }
+    out.innerHTML = liveSpinner();
+    const fd = new FormData();
+    fd.append("file", LIVE.file);
+    fd.append("question", q);
+    const ch = (($("#live-choices") || {}).value || "").trim(); if (ch) fd.append("choices", ch);
+    try {
+      const res = await fetch(v + "/analyze", { method: "POST", body: fd, headers: NGROK_HDR });
+      if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(`HTTP ${res.status} ${res.statusText}. ${esc(t.slice(0, 200))}`); }
+      const data = await res.json();
+      out.innerHTML = liveResult(data);
+      bindTips(out);
+    } catch (e) {
+      out.innerHTML = liveError(`${esc(String(e && e.message || e))}<br><span class="note">Check the URL, that the Colab cell is still running, and that the runtime has a GPU.</span>`);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Analyze on GPU →"; }
+    }
+  }
+  function renderLive() {
+    const api = $("#live-api"); if (!api) return;
+    if (!LIVE.bound) {
+      LIVE.bound = true;
+      api.value = localStorage.getItem("fmr-api-url") || "";
+      api.addEventListener("input", () => { localStorage.setItem("fmr-api-url", apiBase()); updateApiStatus(); });
+      const file = $("#live-file"), drop = $("#live-drop"), prev = $("#live-preview"), inner = $("#live-drop-inner");
+      file.addEventListener("change", () => {
+        const f = file.files && file.files[0]; if (!f) return;
+        LIVE.file = f; prev.src = URL.createObjectURL(f); prev.hidden = false;
+        if (inner) inner.style.display = "none"; drop.classList.add("has");
+      });
+      $("#live-run").addEventListener("click", runLive);
+      $("#live-q").addEventListener("keydown", e => { if (e.key === "Enter") runLive(); });
+      $("#live-choices").addEventListener("keydown", e => { if (e.key === "Enter") runLive(); });
+    }
+    updateApiStatus();
+  }
+
+  /* ==================================================================
      Render dispatch + router
      ================================================================== */
   const RENDER = { overview: renderOverview, methodology: () => renderMethodology(), diagnosis: renderDiagnosis,
     measurement: renderMeasurement, safety: renderSafety, explorer: renderExplorer, robustness: renderRobustness,
-    limitations: () => renderLimitations(), timeline: () => renderTimeline() };
+    limitations: () => renderLimitations(), timeline: () => renderTimeline(), live: () => renderLive() };
   function renderView(v) { const src = activeSource(); try { RENDER[v] && RENDER[v](src); } catch (e) { console.error("render " + v, e); }
     bindTips($("#view-" + v)); }
   function renderAll() {
