@@ -1,0 +1,125 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{parskip}
+
+\title{\textbf{Faithful Medical Reasoning (FMR)}\\[2pt]
+\large A Training-Free Faithfulness Verification \& Calibrated-Abstention Layer for Medical VLMs}
+\author{B.Tech Thesis Project --- Project Summary}
+\date{}
+
+\newcommand{\fs}{\textsc{FS}}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\begin{abstract}
+\noindent Reasoning vision--language models (VLMs) that ``think out loud'' \emph{sound}
+trustworthy, but their chain-of-thought is often not grounded in the image, and grounding
+can \emph{degrade as the chain grows}. In medicine this is safety-critical. \textbf{FMR} is a
+model-agnostic, largely training-free layer that wraps any frozen medical reasoning VLM and
+(i)~\textbf{measures} the visual faithfulness of its reasoning, (ii)~\textbf{corrects}
+ungrounded reasoning at decode time, and (iii)~\textbf{abstains}---deferring to a
+clinician---with a distribution-free guarantee when faithfulness cannot be verified. The
+system is evaluated across four imaging modalities on fully open benchmarks and ships with a
+reproducible harness and an interactive results dashboard.
+\end{abstract}
+
+\section{Problem \& Contributions}
+Final-answer accuracy hides whether a rationale actually used the image: many medical-VQA
+questions are answerable from language priors alone, and reasoning-tuned models can attend to
+the image \emph{less} than their non-reasoning counterparts. FMR targets this gap with two
+headline claims and a hybrid (training-free core + one optional trained component) design:
+\begin{enumerate}[leftmargin=1.4em,itemsep=1pt]
+  \item \textbf{Diagnosis.} Medical reasoning VLMs lose visual groundedness as the reasoning
+        chain grows.
+  \item \textbf{Safety.} A calibrated, \emph{faithfulness-triggered} abstention gate is a new
+        safety layer for that failure mode---deferring on grounding, not just on confidence.
+\end{enumerate}
+
+\section{Architecture --- Three Pillars}
+Input is a medical image (X-ray / CT / MRI / pathology) $+$ a clinical question; output is an
+answer with a faithfulness-verified rationale, or \textsc{abstain}.
+\[
+\text{Image}+\text{Q}\;\to\;\text{Frozen VLM}\;\to\;
+\underbrace{\text{Signals A,B,C}\to\fs}_{\text{P1: Measure}}\;\to\;
+\underbrace{\text{VCD + verify/revise}}_{\text{P2: Correct}}\;\to\;
+\underbrace{\text{conformal gate}}_{\text{P3: Abstain}}\;\to\;\text{Answer / Defer}
+\]
+\begin{description}[leftmargin=1.4em,itemsep=1pt]
+  \item[Pillar 1 --- Measurement.] A multi-signal \textbf{Faithfulness Score} $\fs\in[0,1]$
+        fuses three complementary, independent signals:
+        \textbf{A} counterfactual sensitivity (does the answer change when the image is
+        blanked/swapped?), \textbf{B} attention grounding (does the reasoning attend to the
+        true evidence region; validated by IoU where boxes exist), and \textbf{C}
+        self-consistency across sampled chains. Never trusts one signal.
+  \item[Pillar 2 --- Correction.] Training-free, \emph{selective} (fires only when \fs\ is
+        low): Visual Contrastive Decoding + question$\to$vision clue tracing + step
+        verify/revise re-anchor the reasoning to the image; the frozen base is the fallback.
+  \item[Pillar 3 --- Abstention.] Split-conformal calibration on the \emph{deployed}
+        (post-correction) \fs\ chooses a threshold $\tau$ so that, with probability
+        $\ge 1-\delta$ over the calibration draw, the error on \emph{answered} cases is
+        $\le\alpha$ (selective-risk / Clopper--Pearson bound). Everything below $\tau$ is
+        deferred.
+\end{description}
+An optional \textbf{learned verifier} (gradient-boosted head) replaces the hand-weighted
+fusion; the heuristic \fs\ remains as a guaranteed fallback.
+
+\section{Data, Models, Tooling}
+\textbf{Datasets (fully open):} VQA-RAD, SLAKE (real modality labels), PathVQA, and a
+synthetic fixture with a known grounding latent for machinery validation.
+\textbf{Models:} \emph{reasoning} = MedVLM-R1, \emph{non-reasoning} = Qwen2.5-VL-3B (identical
+prompts). \textbf{Stack:} PyTorch + HuggingFace Transformers; scikit-learn (verifier);
+distribution-free conformal ($\sim$30 lines); the training-free core runs on a single GPU or
+free Colab. Local development is CPU-only against a deterministic \texttt{MockVLM}; real-model
+inference runs on Colab and pushes results back to the repository.
+
+\section{Key Results (reported honestly)}
+\textbf{Machinery (synthetic).} With a known latent, every component behaves as designed:
+per-signal AUROC $A{=}1.00$, $B{=}0.93$, $C{=}0.92$; the fused \fs\ ($0.999$) matches or beats
+any single signal; the conformal gate certifies $\alpha{=}0.05$ at $n_{\text{cal}}{=}1000$
+(coverage $0.58$, retained error $0.019$).
+
+\textbf{Real models (small Colab sets; treated as provisional).}
+\begin{center}\small
+\begin{tabular}{lccl}
+\toprule
+Dataset & MedVLM-R1 acc & Qwen2.5-VL acc & Diagnosis verdict (blind-gap lens) \\
+\midrule
+VQA-RAD & 0.40 & 0.57 & \textbf{Supported} (reasoning relies on image less; \emph{acc-confounded}) \\
+SLAKE   & 0.27 & 0.63 & \textbf{Supported} (confounded) \\
+PathVQA & 0.24 & 0.28 & \textbf{No effect} (both models image-independent) \\
+\bottomrule
+\end{tabular}
+\end{center}
+The per-step ``drift'' curve---the sharper test---awaits real attention$\to$region
+extraction; Signal~B is currently constant on real data (fusion uses A$+$C there).
+\textbf{Abstention head-to-head} (risk--coverage AURC, lower better): \fs\ beats
+confidence on VQA-RAD ($0.749$ vs $0.768$) but not on PathVQA/SLAKE, where confidence is
+stronger; at $n{=}20\text{--}75$ no trigger separates cleanly and the gate honestly reports
+\emph{abstain-all}. \textbf{Learned verifier:} beats the heuristic on real signals
+($0.768\!\to\!0.816$ AUROC) but is capped by weak-label fidelity ($0.77$) vs.\ a true-label
+oracle ($0.951$)---a gap recoverable only with real grounding supervision.
+
+\section{Deliverables \& Status}
+An installable, model-agnostic FMR layer + reproducible evaluation harness; a $101$-test suite
+(all passing); Colab notebooks that run the real pipeline and auto-push results; and an
+interactive, zero-dependency \textbf{dashboard} (nine tabs, light/dark, mock-vs-real
+labeling, live risk--coverage $\alpha$-slider, per-case explorer). Every chart carries a
+sample-size badge; provisional ($n{<}50$) curves are drawn muted/dashed; constant signals and
+gate infeasibility are shown, not hidden.
+
+\section{Honest Limitations}
+Real runs are small-$n$ smoke sets; the blind-gap headline is confounded by the reasoning
+model's lower accuracy; real Signal~B (attention$\to$region) is pending; the conformal
+guarantee needs $\gtrsim\!500$--$1000$ calibration points; the HF mirrors lack per-question
+boxes (Signal-B IoU validated on synthetic). \emph{FMR is a research artifact, not a deployed
+clinical tool---the contribution is precisely the mechanism that makes medical reasoning
+verifiable and safe to defer.}
+
+\end{document}
