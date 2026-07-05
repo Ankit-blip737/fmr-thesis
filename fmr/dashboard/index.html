@@ -1,99 +1,110 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Prevent stale-cache of the generated data/app assets on any http host
-       (GitHub Pages / local server). data.js is regenerated every build. -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>FMR — Faithful Medical Reasoning</title>
-  <link rel="stylesheet" href="style.css?v=1783163188" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=1783217018" />
 </head>
 <body>
-  <header class="topbar">
+  <header class="topbar" id="topbar">
     <div class="brand">
       <div class="logo">FMR</div>
       <div class="brand-text">
         <h1>Faithful Medical Reasoning</h1>
-        <p>A faithfulness verification &amp; calibrated-abstention layer for medical VLMs</p>
+        <p>Measure · Correct · Abstain — a faithfulness layer for medical VLMs</p>
       </div>
     </div>
-    <div class="source-picker">
-      <label for="source">Data source</label>
-      <select id="source"></select>
-      <span id="source-badge" class="badge">—</span>
+    <div class="controls">
+      <div class="control-box">
+        <label for="source">Source</label>
+        <select id="source"></select>
+        <span id="source-badge" class="badge">—</span>
+      </div>
+      <button class="iconbtn" id="compare-btn" title="Compare Mock vs Real (headline metrics)">⇄</button>
+      <button class="iconbtn" id="export-btn" title="Export current view (print / PDF)">⎙</button>
+      <button class="iconbtn" id="theme-btn" title="Toggle dark mode">🌙</button>
     </div>
   </header>
 
-  <nav class="tabs" id="tabs">
-    <a href="#overview" class="active">Overview</a>
-    <a href="#diagnosis">The Diagnosis</a>
-    <a href="#measurement">Measurement</a>
-    <a href="#safety">Safety Layer</a>
-    <a href="#explorer">Case Explorer</a>
-    <a href="#robustness">Robustness</a>
+  <nav class="tabbar" id="tabbar">
+    <button class="tab active" data-view="overview"><span class="tnum">1</span>Overview</button>
+    <button class="tab" data-view="methodology"><span class="tnum">2</span>How It Works</button>
+    <button class="tab" data-view="diagnosis"><span class="tnum">3</span>The Diagnosis</button>
+    <button class="tab" data-view="measurement"><span class="tnum">4</span>Measurement</button>
+    <button class="tab" data-view="safety"><span class="tnum">5</span>Safety Layer</button>
+    <button class="tab" data-view="explorer"><span class="tnum">6</span>Case Explorer</button>
+    <button class="tab" data-view="robustness"><span class="tnum">7</span>Robustness</button>
+    <button class="tab" data-view="limitations"><span class="tnum">8</span>Limitations</button>
+    <button class="tab" data-view="timeline"><span class="tnum">9</span>Timeline</button>
+    <span id="tab-indicator"></span>
   </nav>
 
   <main id="app">
-    <!-- OVERVIEW -->
-    <section id="overview" class="panel">
-      <h2>Overview</h2>
-      <p class="lead">
-        Medical AI that "thinks out loud" <em>sounds</em> trustworthy — but its reasoning is
-        often not actually looking at the scan, and the more it reasons, the worse this gets.
-        FMR <strong>measures</strong> whether each reasoning step is grounded in the image,
-        <strong>corrects</strong> it when it drifts, and <strong>abstains</strong> — deferring to
-        a clinician — when faithfulness cannot be verified, with a distribution-free guarantee.
-      </p>
-      <div class="claims">
-        <div class="claim">
-          <span class="claim-tag">Claim A · Diagnosis</span>
-          <p>Medical reasoning VLMs lose visual groundedness as the reasoning chain grows.</p>
-        </div>
-        <div class="claim">
-          <span class="claim-tag safe">Claim B · Safety</span>
-          <p>A calibrated, faithfulness-triggered abstention gate is a new safety layer for that failure mode.</p>
-        </div>
-      </div>
+    <!-- ===== OVERVIEW ===== -->
+    <section class="view active" id="view-overview" data-view="overview">
+      <h1 class="page-title">Overview</h1>
+      <p class="page-sub">Medical AI that "thinks out loud" <em>sounds</em> trustworthy — but its reasoning
+        often isn't looking at the scan, and the more it reasons, the worse this gets. FMR
+        <strong>measures</strong> whether each reasoning step is grounded in the image,
+        <strong>corrects</strong> drift, and <strong>abstains</strong> — deferring to a clinician — when it
+        cannot be verified, with a distribution-free guarantee.</p>
       <div id="data-caveat"></div>
-      <div id="stat-cards" class="cards"></div>
-      <p class="note" id="provenance"></p>
+      <div class="cards" id="stat-cards"></div>
+      <h2 class="sec">How it works, at a glance</h2>
+      <div class="card"><div id="mini-flow"></div></div>
+      <div class="claims" style="margin-top:22px">
+        <div class="card claim"><span class="claim-tag">Claim A · Diagnosis</span>
+          <p>Medical reasoning VLMs lose visual groundedness as the reasoning chain grows.</p></div>
+        <div class="card claim safe"><span class="claim-tag">Claim B · Safety</span>
+          <p>A calibrated, faithfulness-triggered abstention gate is a new safety layer for that failure mode.</p></div>
+      </div>
+      <p class="note" id="provenance" style="margin-top:16px"></p>
     </section>
 
-    <!-- DIAGNOSIS -->
-    <section id="diagnosis" class="panel">
-      <h2>The Diagnosis — does grounding decay along the reasoning chain?</h2>
+    <!-- ===== METHODOLOGY ===== -->
+    <section class="view" id="view-methodology" data-view="methodology">
+      <h1 class="page-title">How It Works</h1>
+      <p class="page-sub">FMR wraps any frozen medical VLM. Click a stage to see what it does.</p>
+      <div class="card"><div class="flow" id="flow-diagram"></div>
+        <div class="flow-detail" id="flow-detail">Select a stage above.</div>
+      </div>
+      <h2 class="sec">The three pillars</h2>
+      <div class="grid-3" id="pillars"></div>
+    </section>
+
+    <!-- ===== DIAGNOSIS ===== -->
+    <section class="view" id="view-diagnosis" data-view="diagnosis">
+      <h1 class="page-title">The Diagnosis</h1>
+      <p class="page-sub">Do medical reasoning VLMs actually look at the image — and does grounding decay as they reason?</p>
       <div id="replication-verdict"></div>
       <div class="grid-2">
-        <figure class="chart-card">
-          <figcaption>Grounding vs reasoning-step index</figcaption>
+        <figure class="card hoverable"><figcaption>Grounding vs reasoning-step index <span id="drift-src"></span></figcaption>
           <div id="chart-drift"></div>
-          <p class="cap">Mean IoU between each step's attended region and the ground-truth evidence region. A downward slope is the headline effect.</p>
+          <p class="cap">Mean IoU between each step's attended region and the ground-truth evidence region. A downward slope is the headline effect. (Real per-step grounding lights up here once attention extraction lands.)</p>
         </figure>
-        <figure class="chart-card">
-          <figcaption>Blind test — reliance on the image</figcaption>
+        <figure class="card hoverable"><figcaption>Blind test — reliance on the image <span id="blind-src"></span></figcaption>
           <div id="chart-blind"></div>
           <p class="cap">Accuracy with the true image vs a blanked / mismatched image. A large drop means the answer genuinely depends on the image.</p>
         </figure>
       </div>
     </section>
 
-    <!-- MEASUREMENT -->
-    <section id="measurement" class="panel">
-      <h2>Measurement — the multi-signal Faithfulness Score</h2>
-      <p class="lead">Three independent signals — <strong>A</strong> counterfactual sensitivity,
-        <strong>B</strong> attention grounding, <strong>C</strong> self-consistency — are fused
-        into one score. The fusion is designed to beat any single signal.</p>
+    <!-- ===== MEASUREMENT ===== -->
+    <section class="view" id="view-measurement" data-view="measurement">
+      <h1 class="page-title">Measurement</h1>
+      <p class="page-sub">Three independent signals fuse into one Faithfulness Score (FS), designed to beat any single signal.</p>
       <div class="grid-2">
-        <figure class="chart-card">
-          <figcaption>Separation power (AUROC vs grounding label)</figcaption>
+        <figure class="card hoverable"><figcaption>Separation power (AUROC vs grounding label) <span id="auroc-src"></span></figcaption>
           <div id="chart-auroc"></div>
           <p class="cap">How well each signal — and the fused FS — separates grounded from ungrounded reasoning.</p>
         </figure>
-        <figure class="chart-card">
-          <figcaption>Score distributions: grounded vs ungrounded</figcaption>
+        <figure class="card hoverable"><figcaption>Score distributions: grounded vs ungrounded</figcaption>
           <div class="seg" id="sep-toggle"></div>
           <div id="chart-sep"></div>
           <p class="cap">Overlap of the selected signal for grounded (green) vs ungrounded (red) cases. Less overlap = more discriminative.</p>
@@ -101,90 +112,87 @@
       </div>
     </section>
 
-    <!-- SAFETY -->
-    <section id="safety" class="panel">
-      <h2>Safety Layer — calibrated abstention</h2>
+    <!-- ===== SAFETY ===== -->
+    <section class="view" id="view-safety" data-view="safety">
+      <h1 class="page-title">Safety Layer</h1>
+      <p class="page-sub">Faithfulness-triggered abstention with a distribution-free guarantee. Explore the trade-off live.</p>
       <div class="grid-2">
-        <figure class="chart-card">
-          <figcaption>Risk–coverage: faithfulness vs confidence as the deferral trigger</figcaption>
+        <figure class="card hoverable"><figcaption>Risk–coverage & live α gate <span id="rc-src"></span></figcaption>
           <div id="chart-rc"></div>
-          <p class="cap">Error on answered cases vs fraction answered. Lower curves are better. The star marks the calibrated operating point.</p>
+          <div id="alpha-slider-wrap" style="margin-top:10px"></div>
+          <p class="cap">Error on answered cases vs fraction answered (hover for exact values). Drag α to see the resulting gate threshold & coverage, computed live from the risk-coverage data.</p>
         </figure>
         <div class="stack">
           <div id="guarantee-card"></div>
-          <figure class="chart-card">
-            <figcaption>Per-modality accuracy &amp; mean FS</figcaption>
+          <figure class="card hoverable"><figcaption>Per-modality accuracy &amp; mean FS <span id="mod-src"></span></figcaption>
             <div id="chart-modality"></div>
           </figure>
         </div>
       </div>
-
-      <figure class="chart-card" style="margin-top:18px">
-        <figcaption>Abstention triggers head-to-head — risk vs coverage <span id="baselines-src" class="src-tag"></span></figcaption>
+      <figure class="card hoverable" style="margin-top:18px">
+        <figcaption>Abstention triggers head-to-head <span id="baselines-src"></span></figcaption>
         <div class="grid-2">
-          <div>
-            <div id="chart-baselines"></div>
-            <p class="cap">Overlaid risk–coverage curves: our fused FS vs confidence / self-consistency / RadFlag / single signals, on the <em>same</em> test set. Lower is better.</p>
-          </div>
-          <div>
-            <div id="baselines-table"></div>
-            <p class="cap">Retained error at matched coverage. Per proposal §9 this is a reported comparison, not a guaranteed win — small/weak real sets can show no separation.</p>
-          </div>
+          <div><div id="chart-baselines"></div>
+            <p class="cap">Overlaid risk–coverage: fused FS vs confidence / self-consistency / RadFlag / single signals, same test set. Constant (non-discriminating) signals are drawn muted &amp; flagged.</p></div>
+          <div><div id="baselines-table"></div></div>
         </div>
       </figure>
     </section>
 
-    <!-- EXPLORER -->
-    <section id="explorer" class="panel">
-      <h2>Case Explorer</h2>
-      <p class="lead">Pick a case to see its reasoning chain, per-signal scores, and the
-        <strong>ANSWER / ABSTAIN</strong> decision from the calibrated gate.</p>
+    <!-- ===== EXPLORER ===== -->
+    <section class="view" id="view-explorer" data-view="explorer">
+      <h1 class="page-title">Case Explorer</h1>
+      <p class="page-sub">Inspect individual cases: reasoning chain, per-signal scores, and the ANSWER / ABSTAIN decision.</p>
       <div class="explorer">
-        <div class="case-list-wrap">
+        <div class="card case-list-wrap">
+          <input class="searchbox" id="case-search" placeholder="Search questions / answers…" />
           <div class="filters" id="case-filters"></div>
           <div class="case-list" id="case-list"></div>
         </div>
-        <div class="case-detail" id="case-detail"></div>
+        <div class="card case-detail" id="case-detail"></div>
       </div>
     </section>
 
-    <!-- ROBUSTNESS -->
-    <section id="robustness" class="panel">
-      <h2>Robustness &amp; Ablations</h2>
+    <!-- ===== ROBUSTNESS ===== -->
+    <section class="view" id="view-robustness" data-view="robustness">
+      <h1 class="page-title">Robustness &amp; Ablations</h1>
+      <p class="page-sub" id="robustness-sub">Sensitivity analyses for the headline components.</p>
       <div class="grid-2">
-        <figure class="chart-card">
-          <figcaption>Incremental fusion (A → A+B → A+B+C)</figcaption>
-          <div id="chart-incr"></div>
-          <p class="cap">Does adding each signal help? Compared across base models (model-agnosticism).</p>
-        </figure>
-        <figure class="chart-card">
-          <figcaption>FS robustness to fusion weights</figcaption>
-          <div id="chart-weights"></div>
-          <p class="cap">AUROC across the whole weight simplex. A tight band = the score isn't a lucky weighting.</p>
-        </figure>
-        <figure class="chart-card">
-          <figcaption>Signal-B grid sensitivity</figcaption>
-          <div id="chart-grid"></div>
-          <p class="cap">Grounding signal is present across resolutions — not a grid artifact.</p>
-        </figure>
-        <figure class="chart-card">
-          <figcaption>Conformal power — calibration data needed per α</figcaption>
-          <div id="chart-power"></div>
-          <p class="cap">Tighter guarantees (smaller α) require more calibration data.</p>
-        </figure>
+        <figure class="card hoverable"><figcaption>Incremental fusion (A → A+B → A+B+C) <span id="incr-src"></span></figcaption><div id="chart-incr"></div>
+          <p class="cap">Does adding each signal help? Compared across base models (model-agnosticism).</p></figure>
+        <figure class="card hoverable"><figcaption>FS robustness to fusion weights <span id="weights-src"></span></figcaption><div id="chart-weights"></div>
+          <p class="cap">AUROC across the whole weight simplex. A tight band = the score isn't a lucky weighting.</p></figure>
+        <figure class="card hoverable"><figcaption>Signal-B grid sensitivity <span id="grid-src"></span></figcaption><div id="chart-grid"></div>
+          <p class="cap">Grounding signal present across resolutions — not a grid artifact.</p></figure>
+        <figure class="card hoverable"><figcaption>Conformal power — cal data per α <span id="power-src"></span></figcaption><div id="chart-power"></div>
+          <p class="cap">Tighter guarantees (smaller α) require more calibration data.</p></figure>
       </div>
+    </section>
+
+    <!-- ===== LIMITATIONS ===== -->
+    <section class="view" id="view-limitations" data-view="limitations">
+      <h1 class="page-title">Limitations &amp; Honesty</h1>
+      <p class="page-sub">Honest reporting is central to this project. These are the confounds and boundaries a viewer should hold in mind — promoted here, not buried.</p>
+      <div class="stack" id="limitations-list"></div>
+    </section>
+
+    <!-- ===== TIMELINE ===== -->
+    <section class="view" id="view-timeline" data-view="timeline">
+      <h1 class="page-title">Project Timeline</h1>
+      <p class="page-sub">What was tried and found, in order — drawn from the verification log.</p>
+      <div class="timeline" id="timeline-list"></div>
     </section>
 
     <footer class="foot">
-      <p><strong>Honesty notes.</strong> Numbers shown for the <em>Mock (synthetic)</em> source
-      validate the machinery on synthetic data (labeled as such); empirical claims come from the
-      real-model source. Signal&nbsp;B IoU is validated only where ground-truth boxes exist. The
-      abstention guarantee is finite-sample and needs sufficient calibration data. FMR is a
-      research artifact, not a deployed clinical tool — the contribution is the safety mechanism.</p>
+      FMR is a research artifact, not a deployed clinical tool — the contribution is the safety/deferral mechanism.
+      Mock (synthetic) plots validate the machinery on a known latent; empirical claims come from the real-model sources.
     </footer>
   </main>
 
-  <script src="data.js?v=1783163188"></script>
-  <script src="app.js?v=1783163188"></script>
+  <div id="chart-tip"></div>
+  <div id="compare-modal"></div>
+
+  <script src="data.js?v=1783217018"></script>
+  <script src="app.js?v=1783217018"></script>
 </body>
 </html>

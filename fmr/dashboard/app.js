@@ -1,476 +1,567 @@
-/* FMR dashboard — renders window.FMR_DATA into charts + an interactive explorer.
-   Zero dependencies: all charts are hand-rolled SVG so it runs from file://. */
+/* FMR dashboard — SPA, thesis-defense grade. Zero deps; renders window.FMR_DATA.
+   Reuses the existing data bundle; adds tab routing, dark mode, hover tooltips,
+   entrance animation, honest small-n treatment, and new tabs. */
 (function () {
   "use strict";
   const DATA = window.FMR_DATA || { sources: {} };
   const $ = (s, r = document) => r.querySelector(s);
-  const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; };
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const el = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
   const fmt = (x, d = 3) => (x === null || x === undefined || Number.isNaN(x)) ? "—" : Number(x).toFixed(d);
   const pct = (x) => (x === null || x === undefined || Number.isNaN(x)) ? "—" : (100 * x).toFixed(1) + "%";
-  const COL = { primary: "#0e7490", grounded: "#16a34a", ungrounded: "#dc2626", abstain: "#f59e0b",
-                grey: "#94a3b8", a: "#6366f1", b: "#0e7490", c: "#db2777", fs: "#16a34a", conf: "#f59e0b" };
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const SMALL_N = 50;   // below this, real curves are drawn provisionally (dashed/muted)
 
-  /* ------------------------------------------------------------------ charts */
-  function frame(w, h, pad) {
-    const p = Object.assign({ t: 18, r: 16, b: 34, l: 42 }, pad || {});
-    return { w, h, p, iw: w - p.l - p.r, ih: h - p.t - p.b,
-      open: `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet">`, close: `</svg>` };
+  // Colors read from CSS vars so charts follow light/dark theme.
+  function cssv(name, fb) { const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); return v || fb; }
+  function COLORS() {
+    return {
+      primary: cssv("--primary", "#0e7490"), secondary: cssv("--secondary", "#6d28d9"),
+      grounded: cssv("--grounded", "#15a34a"), ungrounded: cssv("--ungrounded", "#dc2626"),
+      abstain: cssv("--abstain", "#e08600"), a: cssv("--a", "#4f46e5"), b: cssv("--b", "#0e7490"),
+      c: cssv("--c", "#db2777"), ink: cssv("--ink", "#0f1e2e"), faint: cssv("--ink-faint", "#8195a8"),
+      line: cssv("--line", "#e3e9f0"), surface: cssv("--surface", "#fff"),
+    };
   }
-  function axes(f, { xTicks = [], yTicks = [], xlab = "", ylab = "" }) {
+
+  /* ---------------------- chart tooltip ---------------------- */
+  const tip = () => $("#chart-tip");
+  function bindTips(container) {
+    $$("[data-tip]", container).forEach(node => {
+      node.addEventListener("mouseenter", (e) => {
+        const t = tip(); t.innerHTML = node.getAttribute("data-tip"); t.style.opacity = "1";
+      });
+      node.addEventListener("mousemove", (e) => {
+        const t = tip(); t.style.left = (e.clientX + 14) + "px"; t.style.top = (e.clientY - 10) + "px";
+      });
+      node.addEventListener("mouseleave", () => { tip().style.opacity = "0"; });
+    });
+  }
+
+  /* ---------------------- SVG primitives ---------------------- */
+  function frame(w, h, pad) {
+    const p = Object.assign({ t: 16, r: 16, b: 34, l: 44 }, pad || {});
+    return { w, h, p, iw: w - p.l - p.r, ih: h - p.t - p.b,
+      open: `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet" role="img">`, close: `</svg>` };
+  }
+  function axes(f, { xTicks = [], yTicks = [], xlab = "", ylab = "" }, C) {
     let s = "";
-    yTicks.forEach(t => {
-      const y = f.p.t + f.ih - t.f * f.ih;
-      s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="#eef2f7"/>`;
-      s += `<text x="${f.p.l - 6}" y="${y + 3}" text-anchor="end" font-size="10">${t.label}</text>`;
-    });
-    xTicks.forEach(t => {
-      const x = f.p.l + t.f * f.iw;
-      s += `<text x="${x}" y="${f.p.t + f.ih + 15}" text-anchor="middle" font-size="10">${t.label}</text>`;
-    });
-    if (ylab) s += `<text x="12" y="${f.p.t + f.ih / 2}" transform="rotate(-90 12 ${f.p.t + f.ih / 2})" text-anchor="middle" font-size="10.5" fill="#64748b">${ylab}</text>`;
-    if (xlab) s += `<text x="${f.p.l + f.iw / 2}" y="${f.h - 2}" text-anchor="middle" font-size="10.5" fill="#64748b">${xlab}</text>`;
+    yTicks.forEach(t => { const y = f.p.t + f.ih - t.f * f.ih;
+      s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${C.line}"/>`;
+      s += `<text x="${f.p.l - 6}" y="${y + 3}" text-anchor="end" font-size="10" fill="${C.faint}">${t.label}</text>`; });
+    xTicks.forEach(t => { const x = f.p.l + t.f * f.iw;
+      s += `<text x="${x}" y="${f.p.t + f.ih + 15}" text-anchor="middle" font-size="10" fill="${C.faint}">${t.label}</text>`; });
+    if (ylab) s += `<text x="12" y="${f.p.t + f.ih / 2}" transform="rotate(-90 12 ${f.p.t + f.ih / 2})" text-anchor="middle" font-size="10.5" fill="${C.faint}">${ylab}</text>`;
+    if (xlab) s += `<text x="${f.p.l + f.iw / 2}" y="${f.h - 2}" text-anchor="middle" font-size="10.5" fill="${C.faint}">${xlab}</text>`;
     return s;
   }
-  function yScale(vals, forceMin, forceMax) {
-    let lo = forceMin !== undefined ? forceMin : Math.min(...vals);
-    let hi = forceMax !== undefined ? forceMax : Math.max(...vals);
-    if (lo === hi) { hi += 1; lo -= 1; }
-    return { lo, hi, f: (v) => (v - lo) / (hi - lo) };
+  function yScale(vals, lo, hi) {
+    let mn = lo !== undefined ? lo : Math.min(...vals), mx = hi !== undefined ? hi : Math.max(...vals);
+    if (mn === mx) { mx += 1; mn -= 1; } return { lo: mn, hi: mx, f: v => (v - mn) / (mx - mn) };
   }
-  function yticks(sc, n = 4) {
-    const out = [];
-    for (let i = 0; i <= n; i++) { const v = sc.lo + (sc.hi - sc.lo) * i / n; out.push({ f: (v - sc.lo) / (sc.hi - sc.lo), label: v.toFixed(2) }); }
-    return out;
-  }
+  function yticks(sc, n = 4) { const o = []; for (let i = 0; i <= n; i++) { const v = sc.lo + (sc.hi - sc.lo) * i / n; o.push({ f: i / n, label: v.toFixed(2) }); } return o; }
 
+  // series: [{name,color,points:[[x,y]],dash,width,provisional}]
   function lineChart(series, opt = {}) {
-    const f = frame(opt.w || 480, opt.h || 260);
+    const C = COLORS(), f = frame(opt.w || 480, opt.h || 260);
     const all = series.flatMap(s => s.points.map(p => p[1]));
     const sc = yScale(all, opt.yMin, opt.yMax);
-    const xs = series[0] ? series[0].points.map(p => p[0]) : [0, 1];
-    const xlo = Math.min(...series.flatMap(s => s.points.map(p => p[0])));
-    const xhi = Math.max(...series.flatMap(s => s.points.map(p => p[0])));
-    const fx = (x) => f.p.l + (xhi === xlo ? 0.5 : (x - xlo) / (xhi - xlo)) * f.iw;
-    const fy = (y) => f.p.t + f.ih - sc.f(y) * f.ih;
-    const xTicks = (opt.xTicks || xs).map(x => ({ f: xhi === xlo ? 0.5 : (x - xlo) / (xhi - xlo), label: opt.xFmt ? opt.xFmt(x) : x }));
-    let s = f.open + axes(f, { xTicks, yTicks: yticks(sc), xlab: opt.xlab, ylab: opt.ylab });
+    const xs = series.flatMap(s => s.points.map(p => p[0]));
+    const xlo = Math.min(...xs), xhi = Math.max(...xs);
+    const fx = x => f.p.l + (xhi === xlo ? .5 : (x - xlo) / (xhi - xlo)) * f.iw;
+    const fy = y => f.p.t + f.ih - sc.f(y) * f.ih;
+    const xTicks = (opt.xTicks || [...new Set(xs)]).map(x => ({ f: xhi === xlo ? .5 : (x - xlo) / (xhi - xlo), label: opt.xFmt ? opt.xFmt(x) : x }));
+    let s = f.open + axes(f, { xTicks, yTicks: yticks(sc), xlab: opt.xlab, ylab: opt.ylab }, C);
+    if (opt.hline !== undefined) { const y = fy(opt.hline); s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${opt.hlineColor || C.ink}" stroke-dasharray="3 3"/>`; }
     series.forEach(se => {
       const d = se.points.map((p, i) => (i ? "L" : "M") + fx(p[0]) + " " + fy(p[1])).join(" ");
-      s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.width || 2}" ${se.dash ? `stroke-dasharray="5 4"` : ""}/>`;
-      if (se.dots !== false) se.points.forEach(p => s += `<circle cx="${fx(p[0])}" cy="${fy(p[1])}" r="${se.r || 3}" fill="${se.color}"/>`);
+      const dash = se.provisional ? `stroke-dasharray="6 4"` : (se.dash ? `stroke-dasharray="5 4"` : "");
+      const op = se.provisional ? 0.72 : 1;
+      const len = 1400;
+      s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.width || 2}" opacity="${op}" ${dash}
+             stroke-dasharray="${se.provisional ? '6 4' : len}" ${se.provisional ? '' : `stroke-dashoffset="${len}"`}>`;
+      if (!se.provisional && opt.animate !== false) s += `<animate attributeName="stroke-dashoffset" from="${len}" to="0" dur="0.7s" fill="freeze"/>`;
+      s += `</path>`;
+      if (se.dots !== false) se.points.forEach(p => {
+        const tt = `<div class='tt-h'>${esc(se.name)}</div>${opt.xlab ? opt.xlab : 'x'} ${opt.xFmt ? opt.xFmt(p[0]) : (+p[0]).toFixed(2)} · ${(opt.ylab || 'y')} ${(+p[1]).toFixed(3)}`;
+        s += `<circle cx="${fx(p[0])}" cy="${fy(p[1])}" r="${se.provisional ? 3 : 3.2}" fill="${se.color}" opacity="${op}"/>`;
+        s += `<circle class="pt" data-tip="${esc(tt)}" cx="${fx(p[0])}" cy="${fy(p[1])}" r="9" fill="transparent" style="cursor:pointer"/>`;
+      });
     });
-    (opt.marks || []).forEach(m => {
-      s += `<path d="M${fx(m.x)} ${fy(m.y)} l-6 -10 l12 0 z" fill="${m.color || COL.ungrounded}"/>`;
-    });
-    if (opt.hline !== undefined) { const y = fy(opt.hline); s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${opt.hlineColor || '#111'}" stroke-dasharray="3 3"/>`; }
+    (opt.marks || []).forEach(m => { s += `<path class="pt" data-tip="${esc(m.tip || '')}" d="M${fx(m.x)} ${fy(m.y)} l-6 -11 l12 0 z" fill="${m.color || C.ungrounded}"/>`; });
     return s + f.close;
   }
 
   function barChart(categories, series, opt = {}) {
-    const f = frame(opt.w || 480, opt.h || 260, opt.pad);
-    const all = series.flatMap(s => s.values.filter(v => v !== null && !Number.isNaN(v)));
-    const sc = yScale(all.concat(opt.baseline0 === false ? [] : [0]), opt.yMin, opt.yMax);
-    const n = categories.length, g = series.length;
-    const bandW = f.iw / n, barW = Math.min(46, (bandW * 0.7) / g);
-    const fy = (y) => f.p.t + f.ih - sc.f(y) * f.ih;
-    const xTicks = categories.map((c, i) => ({ f: (i + 0.5) / n, label: c }));
-    let s = f.open + axes(f, { xTicks, yTicks: yticks(sc), ylab: opt.ylab });
-    categories.forEach((c, i) => {
-      const cx = f.p.l + bandW * (i + 0.5);
-      series.forEach((se, j) => {
-        const v = se.values[i]; if (v === null || v === undefined || Number.isNaN(v)) return;
-        const x = cx - (g * barW) / 2 + j * barW;
-        const y = fy(Math.max(v, sc.lo)), h = Math.max(0, fy(sc.lo) - y);
-        s += `<rect x="${x}" y="${y}" width="${barW - 2}" height="${h}" rx="3" fill="${se.color}"/>`;
-        if (opt.valueLabels) s += `<text x="${x + barW / 2 - 1}" y="${y - 3}" text-anchor="middle" font-size="9.5" fill="#475569">${fmt(v, opt.labelDigits ?? 2)}</text>`;
+    const C = COLORS(), f = frame(opt.w || 480, opt.h || 260, opt.pad);
+    const all = series.flatMap(s => s.values.filter(v => v != null && !Number.isNaN(v)));
+    const sc = yScale(all.concat([opt.baseline0 === false ? all[0] || 0 : 0]), opt.yMin, opt.yMax);
+    const n = categories.length, g = series.length, bandW = f.iw / n, barW = Math.min(46, (bandW * .72) / g);
+    const fy = y => f.p.t + f.ih - sc.f(y) * f.ih;
+    const xTicks = categories.map((c, i) => ({ f: (i + .5) / n, label: c }));
+    let s = f.open + axes(f, { xTicks, yTicks: yticks(sc), ylab: opt.ylab }, C);
+    if (opt.hline !== undefined) { const y = fy(opt.hline); s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${opt.hlineColor || C.faint}" stroke-dasharray="4 3"/>`; }
+    categories.forEach((c, i) => { const cx = f.p.l + bandW * (i + .5);
+      series.forEach((se, j) => { const v = se.values[i]; if (v == null || Number.isNaN(v)) return;
+        const x = cx - (g * barW) / 2 + j * barW, y = fy(Math.max(v, sc.lo)), h = Math.max(0, fy(sc.lo) - y);
+        const col = (se.colors && se.colors[i]) || se.color;
+        const tt = `<div class='tt-h'>${esc(se.name)}</div>${esc(c)}: ${fmt(v, opt.labelDigits ?? 3)}`;
+        s += `<rect class="pt" data-tip="${esc(tt)}" x="${x}" y="${y}" width="${barW - 2}" height="0" rx="3" fill="${col}" style="cursor:pointer">`;
+        if (opt.animate !== false) s += `<animate attributeName="height" from="0" to="${h}" dur="0.6s" fill="freeze"/><animate attributeName="y" from="${fy(sc.lo)}" to="${y}" dur="0.6s" fill="freeze"/>`;
+        else s += `<set attributeName="height" to="${h}"/>`;
+        s += `</rect>`;
+        if (opt.valueLabels) s += `<text x="${x + barW / 2 - 1}" y="${y - 4}" text-anchor="middle" font-size="9.5" fill="${C.faint}">${fmt(v, opt.labelDigits ?? 2)}</text>`;
       });
     });
-    if (opt.hline !== undefined) { const y = fy(opt.hline); s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${opt.hlineColor || '#111'}" stroke-dasharray="4 3"/>`; }
     return s + f.close;
   }
 
   function histogram(groups, opt = {}) {
-    const f = frame(opt.w || 480, opt.h || 260);
-    const bins = opt.bins || 22, lo = 0, hi = 1, bw = (hi - lo) / bins;
-    const counts = groups.map(gr => {
-      const arr = new Array(bins).fill(0);
-      gr.values.forEach(v => { let k = Math.floor((v - lo) / bw); if (k < 0) k = 0; if (k >= bins) k = bins - 1; arr[k]++; });
-      const tot = gr.values.length || 1; return arr.map(c => c / tot);
-    });
-    const maxY = Math.max(0.001, ...counts.flat());
-    const sc = yScale([0, maxY], 0, maxY);
-    const fy = (y) => f.p.t + f.ih - sc.f(y) * f.ih;
-    const xTicks = [0, 0.25, 0.5, 0.75, 1].map(x => ({ f: x, label: x }));
-    let s = f.open + axes(f, { xTicks, yTicks: yticks(sc, 3).map(t => ({ f: t.f, label: "" })), xlab: opt.xlab, ylab: "density" });
-    groups.forEach((gr, gi) => {
-      let d = `M${f.p.l} ${fy(0)}`;
-      counts[gi].forEach((c, k) => { const x0 = f.p.l + (k / bins) * f.iw, x1 = f.p.l + ((k + 1) / bins) * f.iw; d += ` L${x0} ${fy(c)} L${x1} ${fy(c)}`; });
+    const C = COLORS(), f = frame(opt.w || 480, opt.h || 260);
+    const bins = opt.bins || 22, bw = 1 / bins;
+    const counts = groups.map(gr => { const arr = new Array(bins).fill(0);
+      gr.values.forEach(v => { let k = Math.floor(v / bw); if (k < 0) k = 0; if (k >= bins) k = bins - 1; arr[k]++; });
+      const tot = gr.values.length || 1; return arr.map(x => x / tot); });
+    const maxY = Math.max(.001, ...counts.flat()), sc = yScale([0, maxY], 0, maxY), fy = y => f.p.t + f.ih - sc.f(y) * f.ih;
+    let s = f.open + axes(f, { xTicks: [0, .25, .5, .75, 1].map(x => ({ f: x, label: x })), yTicks: [], xlab: opt.xlab, ylab: "density" }, C);
+    groups.forEach((gr, gi) => { let d = `M${f.p.l} ${fy(0)}`;
+      counts[gi].forEach((cc, k) => { const x0 = f.p.l + (k / bins) * f.iw, x1 = f.p.l + ((k + 1) / bins) * f.iw; d += ` L${x0} ${fy(cc)} L${x1} ${fy(cc)}`; });
       d += ` L${f.p.l + f.iw} ${fy(0)} Z`;
-      s += `<path d="${d}" fill="${gr.color}" fill-opacity="0.4" stroke="${gr.color}" stroke-width="1.3"/>`;
-    });
+      s += `<path d="${d}" fill="${gr.color}" fill-opacity="0.4" stroke="${gr.color}" stroke-width="1.3"/>`; });
     return s + f.close;
   }
+  function legend(items) { return `<div class="legend">` + items.map(i => `<span><span class="sw ${i.dash ? 'dash' : ''}" style="${i.dash ? 'color:' + i.color : 'background:' + i.color}"></span>${esc(i.label)}</span>`).join("") + `</div>`; }
 
-  function legend(items) {
-    return `<div class="legend">` + items.map(i => `<span><span class="sw" style="background:${i.color}"></span>${i.label}</span>`).join("") + `</div>`;
+  /* ---------------------- small-n honesty ---------------------- */
+  function srcN(src) { const fr = src.fmr_results || {}; return fr.n_test != null ? fr.n_test : (src.records ? src.records.length : null); }
+  function sampleBadge(src, n) {
+    if (src.kind !== "real") return `<span class="samplesize mock" title="synthetic machinery validation">mock</span>`;
+    const cls = (n != null && n < SMALL_N) ? "small" : "real";
+    return `<span class="samplesize ${cls}" title="${n} real test samples">n=${n ?? "?"}${n != null && n < SMALL_N ? " · small" : ""}</span>`;
   }
+  function isProvisional(src, n) { return src.kind === "real" && n != null && n < SMALL_N; }
+  function tagInto(id, src) { const n = srcN(src); const t = $("#" + id); if (t) t.outerHTML = `<span id="${id}">${sampleBadge(src, n)}</span>`; }
+  function markMock(container, src) { if (container) container.classList.toggle("mockmark", src.kind !== "real"); }
 
-  /* ------------------------------------------------------------------ sections */
+  /* ---------------------- data helpers ---------------------- */
+  const STATE = { source: DATA.default_source, filter: "all", caseIdx: null, sepSig: "fs", search: "", alpha: 0.10, view: "overview" };
   function activeSource() { return DATA.sources[STATE.source] || {}; }
+  function mockSource() { return DATA.sources["mock"] || {}; }
 
+  /* ==================================================================
+     TAB: Overview
+     ================================================================== */
+  function miniFlow() {
+    const C = COLORS();
+    const nodes = [
+      { t: "Image + Q", c: C.faint }, { t: "3 Signals", c: C.a }, { t: "Fused FS", c: C.b },
+      { t: "Correct", c: C.abstain }, { t: "Abstain gate", c: C.grounded }, { t: "Answer / Defer", c: C.primary }];
+    const W = 720, H = 74, gap = 12, bw = (W - gap * (nodes.length - 1)) / nodes.length;
+    let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">`;
+    nodes.forEach((nd, i) => { const x = i * (bw + gap);
+      s += `<rect x="${x}" y="12" width="${bw}" height="42" rx="9" fill="${C.surface}" stroke="${nd.c}" stroke-width="1.5"/>`;
+      s += `<text x="${x + bw / 2}" y="37" text-anchor="middle" font-size="12" font-weight="600" fill="${C.ink}">${nd.t}</text>`;
+      if (i < nodes.length - 1) s += `<text x="${x + bw + gap / 2}" y="37" text-anchor="middle" font-size="15" fill="${C.faint}">→</text>`; });
+    return s + `</svg>`;
+  }
+  function countUp(node, target, d = 3, suffix = "") {
+    if (target == null || Number.isNaN(target)) { node.textContent = "—"; return; }
+    const start = performance.now(), dur = 700;
+    function step(t) { const k = Math.min(1, (t - start) / dur); const e = 1 - Math.pow(1 - k, 3);
+      node.textContent = (target * e).toFixed(d) + suffix; if (k < 1) requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  }
   function renderOverview(src) {
-    const fr = src.fmr_results || {}, bt = src.blind_test || {};
-    const val = fr.validation || {}, ab = fr.abstention || {};
-    const gate = (ab.fs && ab.fs.test) || {};
-    const rep = bt.replication || {};
-    // Card 1 — headline: drift slope when available, else the blind-gap delta.
-    const headCard = (rep.primary_evidence === "blind_gap" || rep.drift_available === false)
-      ? { k: "Image-reliance gap (reasoning)", v: fmt(rep.blind_gap_reasoning, 3),
-          s: rep.blind_gap_supports ? `< non-reasoning ${fmt(rep.blind_gap_nonreasoning,3)} ✓` : "vs non-reasoning" }
-      : { k: "Grounding drift slope", v: fmt(rep.drift_slope, 3), s: rep.replicated ? "decays along chain ✓" : "no decay" };
+    const fr = src.fmr_results || {}, bt = src.blind_test || {}, val = fr.validation || {}, ab = fr.abstention || {};
+    const gate = (ab.fs && ab.fs.test) || {}, rep = bt.replication || {}, n = srcN(src);
+    const head = (rep.primary_evidence === "blind_gap" || rep.drift_available === false)
+      ? { k: "Image-reliance gap", v: rep.blind_gap_reasoning, d: 3, s: rep.blind_gap_supports ? `< non-reasoning ${fmt(rep.blind_gap_nonreasoning, 3)} ✓` : (rep.both_image_independent ? "both image-independent" : "vs non-reasoning") }
+      : { k: "Grounding drift slope", v: rep.drift_slope, d: 3, s: rep.replicated ? "decays along chain ✓" : "no decay" };
     const cards = [
-      headCard,
-      { k: "Fused-FS separation", v: val.auroc_fs != null ? fmt(val.auroc_fs, 3) : "n/a",
-        s: val.auroc_fs != null ? "AUROC vs grounding" : "no grounding labels (real)" },
-      { k: "Answered @ gate", v: gate.coverage != null ? pct(gate.coverage) : "—",
-        s: gate.coverage ? `error ${pct(gate.retained_error)} (α=${fmt(ab.alpha,2)})` : `abstain-all (α=${fmt(ab.alpha,2)})` },
-      { k: "Test cases", v: fr.n_test ?? "—", s: (src.kind === "real" ? "real" : "synthetic") + " dataset" },
+      head,
+      { k: "Fused-FS separation", v: val.auroc_fs != null ? val.auroc_fs : null, d: 3, s: val.auroc_fs != null ? "AUROC vs grounding" : "no grounding labels (real)" },
+      { k: "Answered @ gate", v: gate.coverage != null ? gate.coverage : null, d: 2, pctv: true, s: gate.coverage ? `err ${pct(gate.retained_error)} · α=${fmt(ab.alpha, 2)}` : `abstain-all · α=${fmt(ab.alpha, 2)}` },
+      { k: "Test cases", v: n, d: 0, s: (src.kind === "real" ? "real" : "synthetic") + " dataset" },
     ];
-    $("#stat-cards").innerHTML = cards.map(c => `<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="s">${c.s}</div></div>`).join("");
+    $("#stat-cards").innerHTML = cards.map(c => `<div class="card stat hoverable"><div class="k">${c.k}</div><div class="v" data-target="${c.v ?? ""}" data-d="${c.d}" data-pct="${c.pctv ? 1 : 0}">—</div><div class="s">${c.s}</div></div>`).join("");
+    $$("#stat-cards .v").forEach(node => { const tg = node.getAttribute("data-target");
+      if (tg === "" || tg === "null") { node.textContent = "—"; return; }
+      const isPct = node.getAttribute("data-pct") === "1"; countUp(node, isPct ? +tg * 100 : +tg, isPct ? 1 : +node.getAttribute("data-d"), isPct ? "%" : ""); });
+    $("#mini-flow").innerHTML = miniFlow();
     $("#provenance").textContent = `Source: ${src.label || "—"} · dataset "${fr.dataset || bt.dataset || "?"}" · bundle generated ${DATA.generated_at || "?"}`;
 
-    // Honest data-source caveat banner — never let polish imply false authority.
     const cav = $("#data-caveat");
     if (src.kind === "real") {
-      const n = fr.n_test ?? (src.records ? src.records.length : "?");
-      const integ = src.adapter_integration || {};
-      const notes = [];
-      if (typeof n === "number" && n < 60) notes.push(`small real test set (n=${n}) — numbers are noisy`);
-      if (integ.schema && integ.schema.signal_b_constant) notes.push("Signal B is constant (real attention-region extraction pending) — fusion uses A+C only");
-      if (integ.calibration && integ.calibration["alpha_0.05"] && !integ.calibration["alpha_0.05"].feasible)
-        notes.push("conformal gate infeasible at α=0.05 on this set (needs more calibration data)");
-      cav.className = "caveat real";
-      cav.innerHTML = `<span class="icon">🟢</span><div><b>REAL model data</b> (${src.label}). ` +
-        (notes.length ? "Caveats: " + notes.join("; ") + "." : "") + `</div>`;
+      const integ = src.adapter_integration || {}, notes = [];
+      if (n != null && n < SMALL_N) notes.push(`small real test set (n=${n}) — numbers are noisy`);
+      if (integ.schema && integ.schema.signal_b_constant) notes.push("Signal B constant (real attention extraction pending) — fusion uses A+C");
+      if (ab.fs && !ab.fs.feasible) notes.push(`conformal gate infeasible at α=${fmt(ab.alpha, 2)} on this set`);
+      cav.className = "caveat real"; cav.innerHTML = `<span class="icon">🟢</span><div><b>REAL model data</b> (${esc(src.label)}). ${notes.length ? "Caveats: " + notes.join("; ") + "." : ""}</div>`;
     } else {
-      cav.className = "caveat mock";
-      cav.innerHTML = `<span class="icon">🟡</span><div><b>MOCK / synthetic data</b> — validates the machinery (signal directionality, fusion, guarantee) on a known latent. NOT a real-model result; empirical claims come from the real sources.</div>`;
+      cav.className = "caveat mock"; cav.innerHTML = `<span class="icon">🟡</span><div><b>MOCK / synthetic data</b> — validates the machinery on a known grounding latent. Not a real-model result; empirical claims come from the real sources.</div>`;
     }
   }
 
-  function _srcTag(src) {
-    return src.kind === "real"
-      ? `<span class="src-tag real">real · ${(src.label||'').replace('Real — ','')}</span>`
-      : `<span class="src-tag mock">mock</span>`;
+  /* ==================================================================
+     TAB: Methodology
+     ================================================================== */
+  const FLOW = [
+    { id: "in", t: "Input", d: "Medical image + clinical question.", cls: "" },
+    { id: "gen", t: "Base VLM", d: "A frozen reasoning VLM generates a chain-of-thought + answer. FMR never fine-tunes it.", cls: "" },
+    { id: "fmm", t: "① Measure (FMM)", d: "Three independent signals — A counterfactual sensitivity, B attention grounding, C self-consistency — fuse into a Faithfulness Score.", cls: "pillar1" },
+    { id: "corr", t: "② Correct", d: "When FS is low, training-free Visual Contrastive Decoding + clue-tracing + verify/revise re-anchor the reasoning to the image.", cls: "pillar2" },
+    { id: "gate", t: "③ Abstain gate", d: "Split-conformal calibration on the (post-correction) FS gives a distribution-free bound: answer only if FS ≥ τ, else defer.", cls: "pillar3" },
+    { id: "out", t: "Output", d: "A grounded answer, or ABSTAIN → defer to a clinician.", cls: "" },
+  ];
+  function renderMethodology() {
+    let s = "";
+    FLOW.forEach((nd, i) => { s += `<div class="flow-node ${nd.cls}" data-fid="${nd.id}"><div class="n-t">${nd.t}</div><div class="n-d">${nd.d.slice(0, 42)}…</div></div>`;
+      if (i < FLOW.length - 1) s += `<div class="flow-arrow">→</div>`; });
+    $("#flow-diagram").innerHTML = s;
+    $$("#flow-diagram .flow-node").forEach(node => node.onclick = () => {
+      $$("#flow-diagram .flow-node").forEach(x => x.classList.remove("sel")); node.classList.add("sel");
+      const nd = FLOW.find(f => f.id === node.getAttribute("data-fid"));
+      $("#flow-detail").innerHTML = `<b>${nd.t}</b> — ${nd.d}`;
+    });
+    const pillars = [
+      { n: "Pillar 1 — Measurement", c: "--a", d: "Multi-signal Faithfulness Score. Never trusts one signal: counterfactual + attention + consistency fuse, validated against grounding labels where boxes exist." },
+      { n: "Pillar 2 — Correction", c: "--abstain", d: "Training-free, selective. Only fires when FS is low; re-anchors reasoning to the image (VCD + clue tracing + verify/revise). Frozen base is the fallback." },
+      { n: "Pillar 3 — Abstention", c: "--grounded", d: "The safety contribution. Split-conformal gate on the deployed FS controls selective risk with a distribution-free guarantee; defers what it can't verify." },
+    ];
+    $("#pillars").innerHTML = pillars.map(p => `<div class="card hoverable" style="border-top:3px solid var(${p.c})"><div class="card-h">${p.n}</div><p class="lead" style="font-size:13px">${p.d}</p></div>`).join("");
   }
 
+  /* ==================================================================
+     TAB: Diagnosis
+     ================================================================== */
   function renderDiagnosis(src) {
-    const bt = src.blind_test || {}; const rep = bt.replication || {};
+    const C = COLORS(), bt = src.blind_test || {}, rep = bt.replication || {}, n = srcN(src);
+    tagInto("drift-src", src); tagInto("blind-src", src);
     const vEl = $("#replication-verdict");
     if (rep.tested) {
       vEl.className = "verdict " + (rep.replicated ? "yes" : "no");
       let sub = rep.note || "";
-      if (rep.primary_evidence === "blind_gap" && rep.blind_gap_reasoning != null) {
-        sub = `${rep.reasoning_model}: image-reliance gap ${fmt(rep.blind_gap_reasoning, 3)} vs `
-            + `non-reasoning ${fmt(rep.blind_gap_nonreasoning, 3)}`
-            + (rep.accuracy_confound ? " — ⚠ confounded by lower reasoning-model accuracy" : "")
-            + (rep.drift_available ? "" : "; per-step drift pending attention instrumentation");
-      } else if (rep.primary_evidence === "drift") {
-        sub = `${rep.reasoning_model} · grounding-drift slope ${fmt(rep.drift_slope, 4)} (decays along the chain)`;
-      }
-      const head = rep.replicated
-        ? (rep.primary_evidence === "drift" ? "Headline REPLICATED" : "Headline SUPPORTED")
-        : "Headline NOT supported — reporting the actual effect";
-      vEl.innerHTML = `<span class="icon">${rep.replicated ? "✓" : "✕"}</span>
-        <div><div>${head} <span style="font-weight:500;opacity:.7">(${rep.primary_evidence} lens)</span></div>
-        <div class="sub">${sub}</div></div>`;
+      if (rep.primary_evidence === "blind_gap" && rep.blind_gap_reasoning != null)
+        sub = `${rep.reasoning_model}: image-reliance gap ${fmt(rep.blind_gap_reasoning, 3)} vs non-reasoning ${fmt(rep.blind_gap_nonreasoning, 3)}` + (rep.accuracy_confound ? " — ⚠ confounded by lower reasoning-model accuracy" : "") + (rep.drift_available ? "" : "; per-step drift pending attention instrumentation");
+      else if (rep.primary_evidence === "drift") sub = `${rep.reasoning_model} · drift slope ${fmt(rep.drift_slope, 4)} (decays along the chain)`;
+      const head = rep.replicated ? (rep.primary_evidence === "drift" ? "Headline REPLICATED" : "Headline SUPPORTED") : "Headline NOT supported — reporting the actual effect";
+      vEl.innerHTML = `<span class="icon">${rep.replicated ? "✓" : "✕"}</span><div><div>${head} <span style="font-weight:500;opacity:.7">(${rep.primary_evidence} lens)</span></div><div class="sub">${esc(sub)}</div></div>`;
     } else { vEl.className = ""; vEl.innerHTML = ""; }
 
-    const models = bt.models || {};
-    const series = [];
-    Object.values(models).forEach(m => {
-      const curve = m.iou_vs_step_index || {}; const keys = Object.keys(curve).map(Number).sort((a, b) => a - b);
-      if (!keys.length) return;
-      series.push({ name: m.name, color: m.is_reasoning ? COL.primary : COL.grey, dash: !m.is_reasoning,
-        points: keys.map(k => [k + 1, curve[String(k)]]) });
-    });
+    const models = bt.models || {}, series = [], prov = isProvisional(src, n);
+    Object.values(models).forEach(m => { const curve = m.iou_vs_step_index || {}, ks = Object.keys(curve).map(Number).sort((a, b) => a - b);
+      if (!ks.length) return; series.push({ name: m.name, color: m.is_reasoning ? C.primary : C.faint, dash: !m.is_reasoning, points: ks.map(k => [k + 1, curve[String(k)]]) }); });
+    markMock($("#chart-drift"), src);
     $("#chart-drift").innerHTML = series.length
-      ? lineChart(series, { yMin: 0, ylab: "mean IoU vs GT", xlab: "reasoning step", xFmt: x => "s" + x }) +
-        legend(series.map(s => ({ label: s.name, color: s.color })))
-      : `<p class="empty">No step-grounding curve in this source.</p>`;
+      ? lineChart(series, { yMin: 0, ylab: "mean IoU", xlab: "reasoning step", xFmt: x => "s" + x }) + legend(series.map(s => ({ label: s.name, color: s.color })))
+      : `<p class="empty">No per-step grounding curve for this source. ${src.kind === "real" ? "Real per-step attention→region extraction is pending (Signal B currently constant); this panel activates once it lands." : ""}</p>`;
 
-    const variants = ["original", "blank", "mismatch"];
-    const mkeys = Object.keys(models);
-    $("#chart-blind").innerHTML = mkeys.length
-      ? barChart(variants, mkeys.map((k, i) => ({ name: models[k].name, color: [COL.primary, COL.abstain][i] || COL.grey,
-          values: variants.map(v => models[k].accuracy ? models[k].accuracy[v] : null) })), { yMin: 0, yMax: 1, ylab: "accuracy", valueLabels: true }) +
-        legend(mkeys.map((k, i) => ({ label: models[k].name, color: [COL.primary, COL.abstain][i] || COL.grey })))
+    const variants = ["original", "blank", "mismatch"], mk = Object.keys(models);
+    markMock($("#chart-blind"), src);
+    $("#chart-blind").innerHTML = mk.length
+      ? barChart(variants, mk.map((k, i) => ({ name: models[k].name, color: [C.primary, C.abstain][i] || C.faint, values: variants.map(v => models[k].accuracy ? models[k].accuracy[v] : null) })), { yMin: 0, yMax: 1, ylab: "accuracy", valueLabels: true }) + legend(mk.map((k, i) => ({ label: models[k].name, color: [C.primary, C.abstain][i] || C.faint })))
       : `<p class="empty">No blind-test data.</p>`;
   }
 
+  /* ==================================================================
+     TAB: Measurement
+     ================================================================== */
+  const TIP_AUROC = "AUROC: probability the score ranks a random grounded case above a random ungrounded one. 0.5 = chance, 1.0 = perfect.";
+  const TIP_IOU = "IoU: overlap between the model's attended region and the ground-truth evidence box (0–1).";
+  const TIPS = { A: "Signal A — counterfactual sensitivity: does the answer change when the image is removed/swapped?", B: "Signal B — attention grounding: does the reasoning attend to the true evidence region?", C: "Signal C — self-consistency: do resampled reasoning chains agree?" };
   function renderMeasurement(src) {
-    const val = (src.fmr_results || {}).validation || {};
-    const keys = [["signal_a", "A", COL.a], ["signal_b", "B", COL.b], ["signal_c", "C", COL.c], ["fs", "Fused FS", COL.fs], ["confidence", "Confidence", COL.conf]];
-    const cats = keys.map(k => k[1]);
-    const vals = keys.map(k => val["auroc_" + k[0]]);
+    const C = COLORS(), val = (src.fmr_results || {}).validation || {};
+    tagInto("auroc-src", src);
+    const keys = [["signal_a", "A", C.a], ["signal_b", "B", C.b], ["signal_c", "C", C.c], ["fs", "Fused FS", C.grounded], ["confidence", "Confidence", C.abstain]];
+    const cats = keys.map(k => k[1]), vals = keys.map(k => val["auroc_" + k[0]]);
+    markMock($("#chart-auroc"), src);
     $("#chart-auroc").innerHTML = vals.some(v => v != null)
-      ? barChart(cats, [{ name: "AUROC", values: vals, color: COL.primary, colors: keys.map(k => k[2]) }].map(s => ({ ...s })),
-          { yMin: 0.5, yMax: 1, ylab: "AUROC", valueLabels: true, hline: 0.5 }).replace(/fill="#0e7490"/g, "fill="+JSON.stringify(COL.primary))
-      : `<p class="empty">No validation labels for this source (grounding labels unavailable).</p>`;
-    // color each AUROC bar distinctly by re-rendering with per-cat series
-    if (vals.some(v => v != null)) {
-      $("#chart-auroc").innerHTML = barChart(cats, keys.map((k, i) => ({ name: k[1], color: k[2],
-        values: cats.map((_, j) => j === i ? val["auroc_" + k[0]] : null) })), { yMin: 0.5, yMax: 1, ylab: "AUROC", valueLabels: true, hline: 0.5, hlineColor: "#94a3b8" });
-    }
+      ? barChart(cats, keys.map((k, i) => ({ name: k[1], color: k[2], values: cats.map((_, j) => j === i ? val["auroc_" + k[0]] : null) })), { yMin: 0.5, yMax: 1, ylab: "AUROC", valueLabels: true, hline: 0.5 })
+      : `<p class="empty">No grounding labels for this source — AUROC needs the hidden latent (synthetic) or GT boxes. On real data (no boxes) this stays n/a; see the Case Explorer for per-case signals.</p>`;
     renderSeparation(src);
   }
-
   function renderSeparation(src) {
-    const recs = src.records || [];
-    const labelled = recs.filter(r => r.grounded_latent === 0 || r.grounded_latent === 1);
+    const C = COLORS(), recs = src.records || [], labelled = recs.filter(r => r.grounded_latent === 0 || r.grounded_latent === 1);
     const box = $("#chart-sep"), toggle = $("#sep-toggle");
-    if (!labelled.length) { toggle.innerHTML = ""; box.innerHTML = `<p class="empty">Grounding labels unavailable for this source — separation view needs them.</p>`; return; }
+    if (!labelled.length) { toggle.innerHTML = ""; box.innerHTML = `<p class="empty">Grounding labels unavailable for this source — separation view needs them (synthetic only).</p>`; return; }
     const sigs = [["signal_a", "Signal A"], ["signal_b", "Signal B"], ["signal_c", "Signal C"], ["fs", "Fused FS"]];
-    toggle.innerHTML = sigs.map((s, i) => `<button data-sig="${s[0]}" class="${i === (STATE.sepSig ? sigs.findIndex(x=>x[0]===STATE.sepSig) : 3) === i ? "active" : ""}">${s[1]}</button>`).join("");
-    const sig = STATE.sepSig || "fs";
-    const draw = (sg) => {
-      const g = labelled.filter(r => r.grounded_latent === 1).map(r => r[sg]);
-      const u = labelled.filter(r => r.grounded_latent === 0).map(r => r[sg]);
-      box.innerHTML = histogram([{ name: "ungrounded", color: COL.ungrounded, values: u }, { name: "grounded", color: COL.grounded, values: g }],
-        { xlab: (sigs.find(x => x[0] === sg) || [])[1] }) + legend([{ label: "grounded", color: COL.grounded }, { label: "ungrounded", color: COL.ungrounded }]);
-    };
-    toggle.querySelectorAll("button").forEach(b => b.onclick = () => {
-      STATE.sepSig = b.dataset.sig; toggle.querySelectorAll("button").forEach(x => x.classList.remove("active")); b.classList.add("active"); draw(STATE.sepSig);
-    });
-    draw(sig);
+    const cur = STATE.sepSig || "fs";
+    toggle.innerHTML = sigs.map(s => `<button data-sig="${s[0]}" class="${s[0] === cur ? "active" : ""}">${s[1]}</button>`).join("");
+    const draw = sg => { const g = labelled.filter(r => r.grounded_latent === 1).map(r => r[sg]), u = labelled.filter(r => r.grounded_latent === 0).map(r => r[sg]);
+      markMock(box, src);
+      box.innerHTML = histogram([{ name: "ungrounded", color: C.ungrounded, values: u }, { name: "grounded", color: C.grounded, values: g }], { xlab: (sigs.find(x => x[0] === sg) || [])[1] }) + legend([{ label: "grounded", color: C.grounded }, { label: "ungrounded", color: C.ungrounded }]); };
+    toggle.querySelectorAll("button").forEach(b => b.onclick = () => { STATE.sepSig = b.dataset.sig; toggle.querySelectorAll("button").forEach(x => x.classList.remove("active")); b.classList.add("active"); draw(STATE.sepSig); bindTips(box); });
+    draw(cur);
   }
 
+  /* ==================================================================
+     TAB: Safety
+     ================================================================== */
   function renderSafety(src) {
-    const ab = (src.fmr_results || {}).abstention || {};
-    const defs = [["fs", "Faithfulness Score", COL.fs, 2.6], ["confidence", "Answer confidence", COL.conf, 1.4],
-                  ["signal_a_only", "Signal A", COL.a, 1], ["signal_b_only", "Signal B", COL.b, 1], ["signal_c_only", "Signal C", COL.c, 1]];
+    const C = COLORS(), ab = (src.fmr_results || {}).abstention || {}, n = srcN(src), prov = isProvisional(src, n);
+    tagInto("rc-src", src); tagInto("mod-src", src);
+    const defs = [["fs", "Faithfulness Score", C.grounded, 2.6], ["confidence", "Answer confidence", C.abstain, 1.4],
+      ["signal_a_only", "Signal A", C.a, 1], ["signal_b_only", "Signal B", C.b, 1], ["signal_c_only", "Signal C", C.c, 1]];
     const series = [];
     defs.forEach(d => { const o = ab[d[0]]; if (o && o.risk_coverage && o.risk_coverage.coverage) {
-      series.push({ name: `${d[1]} (AURC ${fmt(o.aurc,3)})`, color: d[2], width: d[3], dots: false,
+      series.push({ name: `${d[1]}${o.degenerate ? " (constant)" : ""} · AURC ${fmt(o.aurc, 3)}`, color: d[2], width: d[3], dots: true, provisional: prov || o.degenerate,
         points: o.risk_coverage.coverage.map((c, i) => [c, o.risk_coverage.risk[i]]) }); } });
     const gate = ab.fs && ab.fs.test;
-    const marks = (gate && gate.n_retained && gate.coverage != null && gate.retained_error != null)
-      ? [{ x: gate.coverage, y: gate.retained_error, color: COL.ungrounded }] : [];
+    const marks = (gate && gate.n_retained && gate.coverage != null && gate.retained_error != null) ? [{ x: gate.coverage, y: gate.retained_error, color: C.ungrounded, tip: `calibrated gate · cov ${pct(gate.coverage)} · err ${pct(gate.retained_error)}` }] : [];
+    markMock($("#chart-rc"), src);
     $("#chart-rc").innerHTML = series.length
-      ? lineChart(series, { yMin: 0, xlab: "coverage (fraction answered)", ylab: "risk (error on answered)", hline: ab.alpha, hlineColor: "#111", marks,
-          xTicks: [0, 0.25, 0.5, 0.75, 1] }) + legend(series.map(s => ({ label: s.name, color: s.color })).concat([{ label: `target α=${fmt(ab.alpha,2)}`, color: "#111" }]))
+      ? lineChart(series, { yMin: 0, yMax: 1, xlab: "coverage", ylab: "risk (error on answered)", hline: ab.alpha, hlineColor: C.ink, marks, xTicks: [0, .25, .5, .75, 1], animate: !prov }) + legend(series.map(s => ({ label: s.name, color: s.color, dash: prov })).concat([{ label: `target α=${fmt(ab.alpha, 2)}`, color: C.ink }]))
       : `<p class="empty">No risk–coverage data.</p>`;
+    renderAlphaSlider(src, ab);
 
     // guarantee card
-    const g = ab.fs || {};
-    const t = g.test || {};
-    const hold = g.feasible ? (t.retained_error == null || t.retained_error <= (ab.alpha ?? 1)) : true;
-    const gc = $("#guarantee-card");
-    gc.className = "card guarantee " + (g.feasible ? (hold ? "hold" : "fail") : "fail");
-    gc.innerHTML = `<h3>Distribution-free guarantee</h3>
-      <div class="row"><span>Target error α</span><b>${fmt(ab.alpha,2)}</b></div>
-      <div class="row"><span>Threshold τ (FS ≥)</span><b>${g.threshold === null || g.threshold === undefined ? "—" : (g.threshold === Infinity || g.threshold > 1e6 ? "∞ (abstain all)" : fmt(g.threshold,3))}</b></div>
+    const g = ab.fs || {}, t = g.test || {}, hold = g.feasible ? (t.retained_error == null || t.retained_error <= (ab.alpha ?? 1)) : true;
+    const gc = $("#guarantee-card"); gc.className = "card guarantee " + (g.feasible ? (hold ? "hold" : "fail") : "fail");
+    gc.innerHTML = `<h3>Distribution-free guarantee ${sampleBadge(src, n)}</h3>
+      <div class="row"><span>Target error α</span><b>${fmt(ab.alpha, 2)}</b></div>
+      <div class="row"><span>Threshold τ (FS ≥)</span><b>${g.threshold == null ? "—" : (g.threshold === Infinity || g.threshold > 1e6 ? "∞" : fmt(g.threshold, 3))}</b></div>
       <div class="row"><span>Coverage (answered)</span><b>${pct(t.coverage)}</b></div>
       <div class="row"><span>Error on answered</span><b>${pct(t.retained_error)}</b></div>
-      <div class="row"><span>Feasible / guarantee holds</span><b>${g.feasible ? "yes" : "no"} / ${hold ? "✓" : "✕"}</b></div>
+      <div class="row"><span>Feasible / holds</span><b>${g.feasible ? "yes" : "no"} / ${hold ? "✓" : "✕"}</b></div>
+      ${!g.feasible ? `<div class="gate-flag abstain">⚠ Gate INFEASIBLE at α=${fmt(ab.alpha, 2)} → the safe output is <b>abstain-all</b> (need more calibration data). Shown, not hidden.</div>` : ""}
       ${ab.provisional_pre_correction ? `<p class="note" style="margin-top:8px">Provisional: pre-correction FS.</p>` : ""}`;
 
-    // per-modality (real per-modality data where it exists; labelled by source)
-    const pm = (src.fmr_results || {}).per_modality || {};
-    const mkeys = Object.keys(pm);
-    $("#chart-modality").innerHTML = mkeys.length
-      ? barChart(mkeys, [{ name: "accuracy", color: COL.primary, values: mkeys.map(m => pm[m].accuracy) },
-          { name: "mean FS", color: COL.grounded, values: mkeys.map(m => pm[m].mean_fs) }], { yMin: 0, yMax: 1, valueLabels: false }) +
-        legend([{ label: "accuracy", color: COL.primary }, { label: "mean FS", color: COL.grounded }].concat(
-          [{ label: src.kind === "real" ? "real per-modality" : "synthetic modalities", color: "#94a3b8" }]))
+    const pm = (src.fmr_results || {}).per_modality || {}, mk = Object.keys(pm);
+    const label = m => m === "unknown" ? "unspec.*" : m;
+    markMock($("#chart-modality"), src);
+    $("#chart-modality").innerHTML = mk.length
+      ? barChart(mk.map(label), [{ name: "accuracy", color: C.primary, values: mk.map(m => pm[m].accuracy) }, { name: "mean FS", color: C.grounded, values: mk.map(m => pm[m].mean_fs) }], { yMin: 0, yMax: 1 }) + legend([{ label: "accuracy", color: C.primary }, { label: "mean FS", color: C.grounded }]) + (mk.includes("unknown") ? `<p class="note">*"unspec." = modality metadata absent in the VQA-RAD mirror (not a bucket); SLAKE carries real ct/mri/xray labels.</p>` : "")
       : `<p class="empty">No per-modality breakdown for this source.</p>`;
-
     renderBaselines(src);
   }
-
-  // Abstention head-to-head (proposal §8/§9): overlaid risk-coverage + matched
-  // coverage table, from the top-level abstention_baselines bundle for THIS source.
+  function renderAlphaSlider(src, ab) {
+    const wrap = $("#alpha-slider-wrap"); const rc = (ab.fs || {}).risk_coverage;
+    if (!rc || !rc.coverage) { wrap.innerHTML = ""; return; }
+    wrap.innerHTML = `<label style="font-size:12px;color:var(--ink-soft)">Hypothetical α: <b id="alpha-val">${STATE.alpha.toFixed(2)}</b></label>
+      <input type="range" id="alpha-range" min="0.02" max="0.40" step="0.01" value="${STATE.alpha}" style="width:100%">
+      <div id="alpha-out" class="note" style="margin-top:4px"></div>`;
+    const compute = a => { // largest coverage whose risk <= a, from the (tie-aware) curve
+      let best = null; for (let i = 0; i < rc.coverage.length; i++) if (rc.risk[i] <= a) best = i;
+      if (best == null) return { feasible: false };
+      return { feasible: true, coverage: rc.coverage[best], risk: rc.risk[best] }; };
+    const upd = () => { const a = +$("#alpha-range").value; STATE.alpha = a; $("#alpha-val").textContent = a.toFixed(2);
+      const r = compute(a); $("#alpha-out").innerHTML = r.feasible
+        ? `→ answer <b>${pct(r.coverage)}</b> of cases at empirical risk <b>${pct(r.risk)}</b> (client-side from the risk-coverage data; not a certified bound).`
+        : `→ no coverage achieves risk ≤ ${a.toFixed(2)} on this set → <b>abstain-all</b>.`; };
+    $("#alpha-range").oninput = upd; upd();
+  }
   function renderBaselines(src) {
-    const tag = $("#baselines-src");
-    if (tag) tag.outerHTML = `<span id="baselines-src">${_srcTag(src)}</span>`;
-    const bundle = (DATA.abstention_baselines || {}).sources || {};
-    const m = bundle[STATE.source];
+    const C = COLORS(); const m = ((DATA.abstention_baselines || {}).sources || {})[STATE.source];
+    tagInto("baselines-src", src);
     const chart = $("#chart-baselines"), table = $("#baselines-table");
-    if (!m || !m.triggers) {
-      chart.innerHTML = `<p class="empty">No baseline comparison for this source.</p>`;
-      table.innerHTML = ""; return;
-    }
-    const names = { fs_ours: ["FS (ours)", COL.fs, 2.6], confidence: ["confidence", COL.conf, 1.3],
-      self_consistency: ["self-consistency", COL.c, 1.3], radflag: ["RadFlag", "#a855f7", 1.1],
-      signal_a: ["Signal A", COL.a, 1], signal_b: ["Signal B", COL.b, 1] };
-    const series = [];
-    Object.entries(m.triggers).forEach(([k, v]) => {
-      if (!v.curve || !v.curve.coverage.length || !names[k]) return;
-      series.push({ name: `${names[k][0]} (AURC ${fmt(v.aurc, 3)})`, color: names[k][1], width: names[k][2],
-        dots: false, points: v.curve.coverage.map((c, i) => [c, v.curve.risk[i]]) });
-    });
-    chart.innerHTML = series.length
-      ? lineChart(series, { yMin: 0, yMax: 1, xlab: "coverage", ylab: "risk (error on answered)", xTicks: [0, 0.25, 0.5, 0.75, 1] }) +
-        legend(series.map(s => ({ label: s.name, color: s.color })))
-      : `<p class="empty">No curve data.</p>`;
-
-    // matched-coverage error table; lowest error per row highlighted.
-    const mce = m.matched_coverage_error || {};
-    const covs = Object.keys(mce);
-    const trigs = Object.keys(m.triggers);
+    if (!m || !m.triggers) { chart.innerHTML = `<p class="empty">No baseline comparison for this source.</p>`; table.innerHTML = ""; return; }
+    const names = { fs_ours: ["FS (ours)", C.grounded, 2.6], confidence: ["confidence", C.abstain, 1.3], self_consistency: ["self-consistency", C.c, 1.3], radflag: ["RadFlag", C.secondary, 1.1], signal_a: ["Signal A", C.a, 1], signal_b: ["Signal B", C.b, 1] };
+    const prov = isProvisional(src, srcN(src)), series = [];
+    Object.entries(m.triggers).forEach(([k, v]) => { if (!v.curve || !v.curve.coverage.length || !names[k]) return;
+      series.push({ name: `${names[k][0]}${v.degenerate ? " (constant)" : ""} · ${fmt(v.aurc, 3)}`, color: names[k][1], width: names[k][2], dots: false, provisional: prov || v.degenerate,
+        points: v.curve.coverage.map((c, i) => [c, v.curve.risk[i]]) }); });
+    markMock(chart, src);
+    chart.innerHTML = series.length ? lineChart(series, { yMin: 0, yMax: 1, xlab: "coverage", ylab: "risk", xTicks: [0, .25, .5, .75, 1], animate: !prov }) + legend(series.map(s => ({ label: s.name, color: s.color, dash: s.provisional }))) : `<p class="empty">No curve data.</p>`;
+    const mce = m.matched_coverage_error || {}, covs = Object.keys(mce), trigs = Object.keys(m.triggers), degen = m.degenerate_triggers || [];
     if (covs.length) {
-      let html = `<table class="btab"><thead><tr><th>coverage</th>` +
-        trigs.map(t => `<th>${names[t] ? names[t][0] : t}</th>`).join("") + `</tr></thead><tbody>`;
-      covs.forEach(c => {
-        const row = mce[c]; const best = Math.min(...trigs.map(t => row[t]));
-        html += `<tr><td>${(+c).toFixed(2)}</td>` + trigs.map(t =>
-          `<td class="${row[t] === best ? "best" : ""}">${fmt(row[t], 3)}</td>`).join("") + `</tr>`;
-      });
-      html += `</tbody></table><p class="cap">n=${m.n}, base acc ${fmt(m.base_accuracy, 3)}. Green = lowest error at that coverage.</p>`;
-      table.innerHTML = html;
+      let h = `<table class="btab"><thead><tr><th>coverage</th>` + trigs.map(t => `<th>${names[t] ? names[t][0] : t}${degen.includes(t) ? "*" : ""}</th>`).join("") + `</tr></thead><tbody>`;
+      covs.forEach(c => { const row = mce[c], live = trigs.filter(t => !degen.includes(t)), best = Math.min(...live.map(t => row[t]));
+        h += `<tr><td>${(+c).toFixed(2)}</td>` + trigs.map(t => `<td class="${degen.includes(t) ? "degen" : (row[t] === best ? "best" : "")}">${fmt(row[t], 3)}</td>`).join("") + `</tr>`; });
+      h += `</tbody></table><p class="cap">n=${m.n}, base acc ${fmt(m.base_accuracy, 3)}. Green = lowest error among <b>discriminating</b> triggers. *constant/degenerate signals (no discrimination at this n) — excluded from ranking.</p>`;
+      table.innerHTML = h;
     } else table.innerHTML = "";
   }
 
-  function decisionFor(src, r) {
-    const t = src.fs_threshold;
-    if (t === null || t === undefined) return null;
-    return r.fs >= t ? "answer" : "abstain";
-  }
-
+  /* ==================================================================
+     TAB: Case Explorer
+     ================================================================== */
+  function decisionFor(src, r) { const t = src.fs_threshold; if (t == null) return null; return r.fs >= t ? "answer" : "abstain"; }
   function renderExplorer(src) {
     const recs = src.records || [];
     const filters = [["all", "All"], ["answer", "Answered"], ["abstain", "Abstained"], ["grounded", "Grounded"], ["ungrounded", "Ungrounded"]];
     $("#case-filters").innerHTML = filters.map(f => `<button data-f="${f[0]}" class="${STATE.filter === f[0] ? "active" : ""}">${f[1]}</button>`).join("");
     $("#case-filters").querySelectorAll("button").forEach(b => b.onclick = () => { STATE.filter = b.dataset.f; STATE.caseIdx = null; renderExplorer(src); });
-
-    const pass = (r) => {
-      const d = decisionFor(src, r);
-      switch (STATE.filter) {
-        case "answer": return d === "answer";
-        case "abstain": return d === "abstain";
-        case "grounded": return r.grounded_latent === 1;
-        case "ungrounded": return r.grounded_latent === 0;
-        default: return true;
-      }
-    };
-    const list = recs.filter(pass);
-    const listEl = $("#case-list");
+    const sb = $("#case-search"); if (sb && sb.value !== STATE.search) sb.value = STATE.search;
+    if (sb && !sb._bound) { sb._bound = true; sb.oninput = () => { STATE.search = sb.value; STATE.caseIdx = null; renderExplorer(src); }; }
+    const q = (STATE.search || "").toLowerCase();
+    const pass = r => { const d = decisionFor(src, r);
+      if (STATE.filter === "answer" && d !== "answer") return false;
+      if (STATE.filter === "abstain" && d !== "abstain") return false;
+      if (STATE.filter === "grounded" && r.grounded_latent !== 1) return false;
+      if (STATE.filter === "ungrounded" && r.grounded_latent !== 0) return false;
+      if (q && !((r.question || "") + " " + (r.answer || "") + " " + (r.gt_answer || "")).toLowerCase().includes(q)) return false;
+      return true; };
+    const list = recs.filter(pass), listEl = $("#case-list");
+    if (!recs.length) { listEl.innerHTML = `<p class="empty">No per-case records for this source.</p>`; $("#case-detail").innerHTML = ""; return; }
     if (!list.length) { listEl.innerHTML = `<p class="empty">No cases match.</p>`; $("#case-detail").innerHTML = ""; return; }
-    listEl.innerHTML = list.map((r, i) => {
-      const d = decisionFor(src, r);
-      const gl = r.grounded_latent;
+    listEl.innerHTML = list.map(r => { const d = decisionFor(src, r), gl = r.grounded_latent;
       return `<button class="case-item ${STATE.caseIdx === r.sample_id ? "active" : ""}" data-id="${r.sample_id}">
-        ${gl === 1 ? '<span class="dot g" title="grounded"></span>' : gl === 0 ? '<span class="dot u" title="ungrounded"></span>' : ''}
-        <span class="cq">${escapeHtml(r.question || r.sample_id)}</span>
-        ${d ? `<span class="pill ${d}">${d}</span>` : ""}
-      </button>`;
-    }).join("");
+        ${gl === 1 ? '<span class="dot g"></span>' : gl === 0 ? '<span class="dot u"></span>' : ''}
+        <span class="cq">${esc(r.question || r.sample_id)}</span>
+        <span class="ans">${esc(String(r.answer))}${r.correct != null ? (r.correct ? " ✓" : " ✗") : ""}</span>
+        ${d ? `<span class="pill ${d}">${d}</span>` : ""}</button>`; }).join("");
     listEl.querySelectorAll(".case-item").forEach(b => b.onclick = () => { STATE.caseIdx = b.dataset.id; renderExplorer(src); });
-
-    const chosen = list.find(r => r.sample_id === STATE.caseIdx) || list[0];
-    STATE.caseIdx = chosen.sample_id;
-    renderCase(src, chosen);
+    const chosen = list.find(r => r.sample_id === STATE.caseIdx) || list[0]; STATE.caseIdx = chosen.sample_id; renderCase(src, chosen);
     listEl.querySelectorAll(".case-item").forEach(b => b.classList.toggle("active", b.dataset.id === chosen.sample_id));
   }
-
   function renderCase(src, r) {
-    const d = decisionFor(src, r);
-    const sig = (name, val, color) => `<div class="sigbar"><span>${name}</span>
-      <span class="track"><span class="fill" style="width:${Math.round((val||0)*100)}%;background:${color}"></span></span><b>${fmt(val,3)}</b></div>`;
-    const steps = (r.steps_text || []);
-    const stepFs = r.fs_per_step || [];
-    const stepsHtml = steps.length ? `<h4 style="margin:16px 0 6px;font-size:13px;color:#475569">Reasoning chain (per-step faithfulness)</h4>
-      <ul class="steps">${steps.map((tx, i) => { const v = stepFs[i]; const col = v == null ? COL.grey : (v > 0.5 ? COL.grounded : v > 0.33 ? COL.abstain : COL.ungrounded);
-        return `<li><span>${escapeHtml(tx)}</span><span class="stepfs"><div style="width:${Math.round((v||0)*100)}%;background:${col}"></div></span></li>`; }).join("")}</ul>` : "";
+    const C = COLORS(), d = decisionFor(src, r);
+    const sig = (name, val, color) => `<div class="sigbar"><span>${name}</span><span class="track"><span class="fill" style="width:${Math.round((val || 0) * 100)}%;background:${color}"></span></span><b>${fmt(val, 3)}</b></div>`;
+    const steps = r.steps_text || [], stepFs = r.fs_per_step || [];
+    const stepsHtml = steps.length ? `<h4 style="margin:16px 0 6px;font-size:13px;color:var(--ink-soft)">Reasoning chain (per-step faithfulness)</h4><ul class="steps">${steps.map((tx, i) => { const v = stepFs[i], col = v == null ? C.faint : (v > .5 ? C.grounded : v > .33 ? C.abstain : C.ungrounded); return `<li><span>${esc(tx)}</span><span class="stepfs"><div style="width:${Math.round((v || 0) * 100)}%;background:${col}"></div></span></li>`; }).join("")}</ul>` : "";
     $("#case-detail").innerHTML = `
-      <p class="q">${escapeHtml(r.question || r.sample_id)}</p>
-      <p class="meta">${r.modality || "?"} · id ${r.sample_id} · model answer <b>${escapeHtml(String(r.answer))}</b> vs truth <b>${escapeHtml(String(r.gt_answer))}</b>
-        <span class="pill ${r.correct ? "correct" : "wrong"}">${r.correct ? "correct" : "wrong"}</span>
-        ${r.grounded_latent === 1 ? '<span class="pill correct">grounded</span>' : r.grounded_latent === 0 ? '<span class="pill wrong">ungrounded</span>' : ''}</p>
+      <p class="q">${esc(r.question || r.sample_id)}</p>
+      <p class="meta">${r.modality === "unknown" ? "modality unspecified" : (r.modality || "?")} · id ${r.sample_id}</p>
+      <div class="answers-row">
+        <div class="ans-box model ${r.correct ? "ok" : "bad"}"><div class="lab">Model answer</div><div class="val">${esc(String(r.answer))} <span class="pill ${r.correct ? "correct" : "wrong"}">${r.correct ? "correct" : "wrong"}</span></div></div>
+        <div class="ans-box truth"><div class="lab">Ground truth</div><div class="val">${esc(String(r.gt_answer))}</div></div>
+        ${r.grounded_latent != null ? `<div class="ans-box"><div class="lab">Latent</div><div class="val"><span class="pill ${r.grounded_latent ? "correct" : "wrong"}">${r.grounded_latent ? "grounded" : "ungrounded"}</span></div></div>` : ""}
+      </div>
       ${d ? `<div class="decision ${d}">${d === "answer" ? "✓ ANSWER" : "⚠ ABSTAIN → defer to clinician"}</div>` : ""}
       <div class="sigbars">
-        ${sig("Signal A · counterfactual", r.signal_a, COL.a)}
-        ${sig("Signal B · grounding", r.signal_b, COL.b)}
-        ${sig("Signal C · consistency", r.signal_c, COL.c)}
-        ${sig("Fused Faithfulness Score", r.fs, COL.fs)}
-        ${sig("Model confidence", r.confidence, COL.conf)}
+        ${sig("Signal A · counterfactual", r.signal_a, C.a)}
+        ${sig("Signal B · grounding", r.signal_b, C.b)}
+        ${sig("Signal C · consistency", r.signal_c, C.c)}
+        ${sig("Fused Faithfulness Score", r.fs, C.grounded)}
+        ${sig("Model confidence", r.confidence, C.abstain)}
       </div>
-      ${src.fs_threshold != null ? `<p class="note">Gate threshold τ = ${fmt(src.fs_threshold,3)}: answer iff FS ≥ τ.</p>` : `<p class="note">No calibrated threshold in this source.</p>`}
+      ${src.fs_threshold != null ? `<p class="note">Gate τ = ${fmt(src.fs_threshold, 3)}: answer iff FS ≥ τ.</p>` : `<p class="note">No calibrated threshold in this source.</p>`}
       ${stepsHtml}`;
   }
 
+  /* ==================================================================
+     TAB: Robustness  (ablations are synthetic-fixture → always mock, badged)
+     ================================================================== */
   function renderRobustness(src) {
-    const fb = src.full_benchmark || {}; const abl = src.ablations || {};
-    // incremental fusion across models
-    const models = fb.models || {};
-    const stages = ["auroc_fs_A", "auroc_fs_AB", "auroc_fs_ABC"];
-    const mkeys = Object.keys(models).filter(k => models[k].validation && models[k].validation.auroc_fs_A != null);
-    $("#chart-incr").innerHTML = mkeys.length
-      ? lineChart(mkeys.map((k, i) => ({ name: models[k].model, color: [COL.primary, COL.c][i] || COL.grey,
-          points: stages.map((s, j) => [j, models[k].validation[s]]) })), { ylab: "AUROC", xTicks: [0, 1, 2], xFmt: x => ["A", "A+B", "A+B+C"][x] }) +
-        legend(mkeys.map((k, i) => ({ label: models[k].model, color: [COL.primary, COL.c][i] || COL.grey })))
-      : `<p class="empty">Run the full benchmark to populate this.</p>`;
+    const C = COLORS(); const mock = mockSource(); const usingMock = true;  // ablations are inherently synthetic
+    const fb = mock.full_benchmark || {}, abl = mock.ablations || {};
+    $("#robustness-sub").innerHTML = `Sensitivity analyses for the headline components. <b>These ablations run on the synthetic fixture</b> (they need a known grounding latent), so they are shown from the Mock source regardless of the selected data source ${sampleBadge({ kind: "mock" })} — real ablations are not applicable.`;
+    ["chart-incr", "chart-weights", "chart-grid", "chart-power"].forEach(id => markMock($("#" + id), { kind: "mock" }));
 
-    // weight sensitivity
+    const models = fb.models || {}, stages = ["auroc_fs_A", "auroc_fs_AB", "auroc_fs_ABC"], mk = Object.keys(models).filter(k => models[k].validation && models[k].validation.auroc_fs_A != null);
+    $("#chart-incr").innerHTML = mk.length ? lineChart(mk.map((k, i) => ({ name: models[k].model, color: [C.primary, C.c][i] || C.faint, points: stages.map((s, j) => [j, models[k].validation[s]]) })), { ylab: "AUROC", xTicks: [0, 1, 2], xFmt: x => ["A", "A+B", "A+B+C"][x] }) + legend(mk.map((k, i) => ({ label: models[k].model, color: [C.primary, C.c][i] || C.faint }))) : `<p class="empty insufficient">Insufficient data — run the full benchmark.</p>`;
     const ws = abl.weight_sensitivity;
-    $("#chart-weights").innerHTML = ws
-      ? barChart(["min", "mean", "max"], [{ name: "AUROC", color: COL.primary, values: [ws.auroc_min, ws.auroc_mean, ws.auroc_max] }],
-          { yMin: 0.5, yMax: 1, valueLabels: true, hline: ws.default_weights_auroc, hlineColor: COL.grounded }) +
-        legend([{ label: `default weights = ${fmt(ws.default_weights_auroc,3)}`, color: COL.grounded }])
-      : `<p class="empty">Run ablations to populate this.</p>`;
-
-    // grid sensitivity
+    $("#chart-weights").innerHTML = ws ? barChart(["min", "mean", "max"], [{ name: "AUROC", color: C.primary, values: [ws.auroc_min, ws.auroc_mean, ws.auroc_max] }], { yMin: 0.5, yMax: 1, valueLabels: true, hline: ws.default_weights_auroc, hlineColor: C.grounded }) + legend([{ label: `default weights = ${fmt(ws.default_weights_auroc, 3)}`, color: C.grounded }]) : `<p class="empty insufficient">Insufficient data — run ablations.</p>`;
     const gs = abl.grid_sensitivity;
-    if (gs) {
-      const gk = Object.keys(gs).map(Number).sort((a, b) => a - b);
-      $("#chart-grid").innerHTML = lineChart([
-        { name: "Signal B", color: COL.b, points: gk.map(g => [g, gs[String(g)].auroc_signal_b]) },
-        { name: "Fused FS", color: COL.fs, points: gk.map(g => [g, gs[String(g)].auroc_fs]) }],
-        { yMin: 0.5, yMax: 1, ylab: "AUROC", xlab: "grid resolution", xTicks: gk }) +
-        legend([{ label: "Signal B", color: COL.b }, { label: "Fused FS", color: COL.fs }]);
-    } else $("#chart-grid").innerHTML = `<p class="empty">Run ablations to populate this.</p>`;
-
-    // conformal power
+    if (gs) { const gk = Object.keys(gs).map(Number).sort((a, b) => a - b);
+      $("#chart-grid").innerHTML = lineChart([{ name: "Signal B", color: C.b, points: gk.map(g => [g, gs[String(g)].auroc_signal_b]) }, { name: "Fused FS", color: C.grounded, points: gk.map(g => [g, gs[String(g)].auroc_fs]) }], { yMin: 0.5, yMax: 1, ylab: "AUROC", xlab: "grid resolution", xTicks: gk }) + legend([{ label: "Signal B", color: C.b }, { label: "Fused FS", color: C.grounded }]); }
+    else $("#chart-grid").innerHTML = `<p class="empty insufficient">Insufficient data — run ablations.</p>`;
     const pw = abl.abstention_power && abl.abstention_power.min_cal_size_for_alpha;
-    if (pw) {
-      const ak = Object.keys(pw).map(Number).sort((a, b) => a - b);
-      $("#chart-power").innerHTML = lineChart([{ name: "min cal size", color: COL.abstain,
-        points: ak.map(a => [a, pw[String(a)] == null ? 0 : pw[String(a)]]) }], { yMin: 0, ylab: "min calibration N", xlab: "target error α", xTicks: ak, xFmt: x => x });
-    } else $("#chart-power").innerHTML = `<p class="empty">Run ablations to populate this.</p>`;
+    if (pw) { const ak = Object.keys(pw).map(Number).sort((a, b) => a - b);
+      $("#chart-power").innerHTML = lineChart([{ name: "min cal size", color: C.abstain, points: ak.map(a => [a, pw[String(a)] == null ? 0 : pw[String(a)]]) }], { yMin: 0, ylab: "min calibration N", xlab: "target error α", xTicks: ak }); }
+    else $("#chart-power").innerHTML = `<p class="empty insufficient">Insufficient data — run ablations.</p>`;
   }
 
-  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+  /* ==================================================================
+     TAB: Limitations & Timeline
+     ================================================================== */
+  function renderLimitations() {
+    const lims = [
+      { ok: false, h: "Small real-data samples (n=20–50)", p: "Real runs are Colab smoke sets. Abstention/verifier numbers are noisy and several triggers show no separation at this n. Charts carry sample-size badges and dashed/muted styling below n=50." },
+      { ok: false, h: "Signal B constant on real data", p: "Per-step attention→region extraction is still stubbed for real HF models, so Signal B is a constant 0.5 there — the fused FS uses A+C on real data until real attention grounding lands." },
+      { ok: false, h: "Blind-gap headline is confounded", p: "On VQA-RAD the reasoning model relies on the image less than the non-reasoning one (supports the hypothesis) — but it is also less accurate overall, a confound we flag rather than hide. On PathVQA both models are image-independent (no grounding effect)." },
+      { ok: false, h: "Conformal gate infeasible at small n", p: "Controlling 5% error at 95% confidence needs ≳500–1000 calibration points; on n=20–50 the gate honestly reports abstain-all rather than a false guarantee." },
+      { ok: false, h: "Verifier weak-label ceiling", p: "The learned verifier beats the heuristic (0.768→0.816 AUROC) but is capped by 0.77 weak-label fidelity vs a 0.951 oracle — recoverable only with real grounding supervision." },
+      { ok: false, h: "No per-QA boxes in the HF mirrors", p: "VQA-RAD/SLAKE mirrors lack per-question bounding boxes, so Signal-B IoU is validated on synthetic data; real Signal-B validation awaits the SLAKE segmentation masks." },
+      { ok: true, h: "Machinery is validated", p: "On the synthetic fixture with a known latent, every component behaves as designed: signals separate grounded from ungrounded, fusion beats singles, and the guarantee holds empirically across many draws." },
+    ];
+    $("#limitations-list").innerHTML = lims.map(l => `<div class="card lim ${l.ok ? "ok" : ""}"><h3>${l.ok ? "✓ " : "⚠ "}${l.h}</h3><p>${l.p}</p></div>`).join("");
+  }
+  function renderTimeline() {
+    const tl = (DATA.timeline && DATA.timeline.length) ? DATA.timeline : [
+      { date: "Stage 0–1", tag: "A", body: "Repo scaffolding, data loaders (VQA-RAD/SLAKE/PathVQA verified on live HF mirrors), disjoint splits." },
+      { date: "Stage 2", tag: "A", body: "Baselines + blind test; headline replication verdict machinery (drift + blind-gap lenses)." },
+      { date: "Stage 3", tag: "A", body: "FMM: Signals A/B/C + fused FS; validated on synthetic (fused AUROC 0.87 > any single)." },
+      { date: "Stage 4", tag: "B", body: "Training-free correction (VCD + clue-tracing + verify/revise); real cross-model sweep on Qwen2.5-VL." },
+      { date: "Stage 5", tag: "A", body: "Conformal abstention (SGR guarantee); honest calibration-power finding (α=0.05 needs ~1k cal points)." },
+      { date: "Stage 6", tag: "A", body: "Full benchmark + ablations + model-agnosticism; correction wired in (calibration ordering fix)." },
+      { date: "Stretch", tag: "B", body: "Learned verifier beats heuristic on real signals; weak-label ceiling reported honestly. LLM-judge validated (κ)." },
+      { date: "Real runs", tag: "A", body: "Colab: MedVLM-R1 vs Qwen2.5-VL on VQA-RAD/PathVQA/SLAKE; results pushed back and wired into this dashboard." },
+      { date: "Integration", tag: "A", body: "Branches unified; tie-aware risk-coverage fix (constant signals no longer fabricate AURCs); full UI overhaul." },
+    ];
+    $("#timeline-list").innerHTML = tl.map(t => `<div class="tl-item ${t.tag === "B" ? "b" : ""}"><div class="tl-date">${esc(t.date)} · [${t.tag}]</div><div class="tl-body">${esc(t.body)}</div></div>`).join("");
+  }
 
-  /* ------------------------------------------------------------------ shell */
-  const STATE = { source: DATA.default_source, filter: "all", caseIdx: null, sepSig: "fs" };
-
+  /* ==================================================================
+     Render dispatch + router
+     ================================================================== */
+  const RENDER = { overview: renderOverview, methodology: () => renderMethodology(), diagnosis: renderDiagnosis,
+    measurement: renderMeasurement, safety: renderSafety, explorer: renderExplorer, robustness: renderRobustness,
+    limitations: () => renderLimitations(), timeline: () => renderTimeline() };
+  function renderView(v) { const src = activeSource(); try { RENDER[v] && RENDER[v](src); } catch (e) { console.error("render " + v, e); }
+    bindTips($("#view-" + v)); }
   function renderAll() {
-    const src = activeSource();
-    const badge = $("#source-badge");
-    badge.textContent = src.kind === "real" ? "REAL DATA" : "MOCK / SYNTHETIC";
-    badge.className = "badge " + (src.kind === "real" ? "real" : "mock");
-    renderOverview(src); renderDiagnosis(src); renderMeasurement(src);
-    renderSafety(src); renderExplorer(src); renderRobustness(src);
+    const src = activeSource(), badge = $("#source-badge");
+    badge.textContent = src.kind === "real" ? "REAL" : "MOCK"; badge.className = "badge " + (src.kind === "real" ? "real" : "mock");
+    renderView(STATE.view);   // active view now; others render lazily on switch
+  }
+
+  function switchTab(v, push = true) {
+    if (!document.getElementById("view-" + v)) v = "overview";
+    STATE.view = v;
+    $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === v));
+    $$(".view").forEach(sec => { const on = sec.dataset.view === v; sec.classList.toggle("active", on); if (on) { sec.classList.remove("anim"); void sec.offsetWidth; sec.classList.add("anim"); } });
+    moveIndicator(); renderView(v);
+    if (push && location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function moveIndicator() { const tab = $(".tab.active"), ind = $("#tab-indicator"); if (!tab || !ind) return;
+    ind.style.left = tab.offsetLeft + "px"; ind.style.width = tab.offsetWidth + "px"; }
+
+  function initTabs() {
+    $$(".tab").forEach(t => t.onclick = () => switchTab(t.dataset.view));
+    window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+      const order = $$(".tab").map(t => t.dataset.view), i = order.indexOf(STATE.view);
+      if (e.key === "ArrowRight") switchTab(order[Math.min(order.length - 1, i + 1)]);
+      else if (e.key === "ArrowLeft") switchTab(order[Math.max(0, i - 1)]);
+      else if (/^[1-9]$/.test(e.key) && +e.key <= order.length) switchTab(order[+e.key - 1]); });
+    window.addEventListener("resize", moveIndicator);
+    const h = location.hash.slice(1); switchTab(h || "overview", false);
+  }
+
+  function initHeader() {
+    // theme
+    const saved = localStorage.getItem("fmr-theme") || "light";
+    document.documentElement.setAttribute("data-theme", saved);
+    $("#theme-btn").textContent = saved === "dark" ? "☀️" : "🌙";
+    $("#theme-btn").onclick = () => { const cur = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", cur); localStorage.setItem("fmr-theme", cur);
+      $("#theme-btn").textContent = cur === "dark" ? "☀️" : "🌙"; renderView(STATE.view); moveIndicator(); };
+    // slim header on scroll
+    window.addEventListener("scroll", () => $("#topbar").classList.toggle("slim", window.scrollY > 40), { passive: true });
+    // export (print)
+    $("#export-btn").onclick = () => window.print();
+    // compare mode
+    $("#compare-btn").onclick = openCompare;
+  }
+
+  function openCompare() {
+    const modal = $("#compare-modal"); const mock = DATA.sources["mock"], real = Object.entries(DATA.sources).find(([k, s]) => s.kind === "real" && (s.fmr_results || s.records));
+    if (!real) { alert("No real source available to compare."); return; }
+    const headline = s => { const fr = s.fmr_results || {}, bt = s.blind_test || {}, rep = bt.replication || {}, ab = fr.abstention || {}, g = (ab.fs || {}).test || {};
+      return { auroc: (fr.validation || {}).auroc_fs, drift: rep.drift_slope, blind: rep.blind_gap_reasoning, cov: g.coverage, err: g.retained_error, n: srcN(s) }; };
+    const m = headline(mock), r = headline(real[1]);
+    const row = (lab, mv, rv, f) => `<tr><td>${lab}</td><td>${f(mv)}</td><td>${f(rv)}</td></tr>`;
+    modal.innerHTML = `<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:grid;place-items:center" id="cmp-bg">
+      <div class="card" style="max-width:560px;width:92%"><div class="card-h" style="justify-content:space-between">Mock vs Real — headline metrics <button class="btn" id="cmp-close">✕</button></div>
+      <table class="btab"><thead><tr><th>metric</th><th>Mock (synthetic) ${sampleBadge({ kind: "mock" })}</th><th>Real ${sampleBadge(real[1], r.n)}</th></tr></thead><tbody>
+      ${row("Fused-FS AUROC", m.auroc, r.auroc, v => v == null ? "n/a" : fmt(v, 3))}
+      ${row("Blind-gap (reasoning)", m.blind, r.blind, v => v == null ? "n/a" : fmt(v, 3))}
+      ${row("Gate coverage", m.cov, r.cov, pct)}
+      ${row("Gate retained error", m.err, r.err, pct)}
+      </tbody></table>
+      <p class="cap">Mock validates machinery on a known latent; Real is the empirical finding (small n). This is the machinery-vs-empirical view side by side.</p></div></div>`;
+    $("#cmp-close").onclick = () => modal.innerHTML = "";
+    $("#cmp-bg").onclick = e => { if (e.target.id === "cmp-bg") modal.innerHTML = ""; };
   }
 
   function initSourcePicker() {
-    const sel = $("#source");
-    const keys = Object.keys(DATA.sources);
-    if (!keys.length) { $("#app").innerHTML = `<p class="empty">No data yet. Run the pipeline and <code>python fmr/scripts/make_dashboard.py</code>.</p>`; return false; }
-    sel.innerHTML = keys.map(k => `<option value="${k}" ${k === STATE.source ? "selected" : ""}>${DATA.sources[k].label || k}</option>`).join("");
+    const sel = $("#source"), keys = Object.keys(DATA.sources);
+    if (!keys.length) { $("#app").innerHTML = `<p class="empty">No data. Run the pipeline + make_dashboard.py.</p>`; return false; }
+    sel.innerHTML = keys.map(k => `<option value="${k}" ${k === STATE.source ? "selected" : ""}>${esc(DATA.sources[k].label || k)}</option>`).join("");
     sel.onchange = () => { STATE.source = sel.value; STATE.caseIdx = null; renderAll(); };
     return true;
   }
 
-  function initTabs() {
-    const links = Array.from(document.querySelectorAll(".tabs a"));
-    const secs = links.map(a => document.querySelector(a.getAttribute("href")));
-    const obs = new IntersectionObserver((ents) => {
-      ents.forEach(e => { if (e.isIntersecting) { const id = "#" + e.target.id;
-        links.forEach(l => l.classList.toggle("active", l.getAttribute("href") === id)); } });
-    }, { rootMargin: "-140px 0px -70% 0px" });
-    secs.forEach(s => s && obs.observe(s));
-  }
-
-  if (initSourcePicker()) { renderAll(); initTabs(); }
+  if (initSourcePicker()) { initHeader(); renderAll(); initTabs(); }
 })();
