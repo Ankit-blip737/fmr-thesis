@@ -294,6 +294,7 @@
     $("#chart-blind").innerHTML = mk.length
       ? barChart(variants, mk.map((k, i) => ({ name: models[k].name, color: [C.primary, C.abstain][i] || C.faint, values: variants.map(v => models[k].accuracy ? models[k].accuracy[v] : null) })), { yMin: 0, yMax: 1, ylab: "accuracy", valueLabels: true }) + legend(mk.map((k, i) => ({ label: models[k].name, color: [C.primary, C.abstain][i] || C.faint })))
       : `<p class="empty">No blind-test data.</p>`;
+    renderChainLen(src);
   }
 
   /* ==================================================================
@@ -312,6 +313,7 @@
       ? barChart(cats, keys.map((k, i) => ({ name: k[1], color: k[2], values: cats.map((_, j) => j === i ? val["auroc_" + k[0]] : null) })), { yMin: 0.5, yMax: 1, ylab: "AUROC", valueLabels: true, hline: 0.5 })
       : `<p class="empty">No grounding labels for this source — AUROC needs the hidden latent (synthetic) or GT boxes. On real data (no boxes) this stays n/a; see the Case Explorer for per-case signals.</p>`;
     renderSeparation(src);
+    renderFSAcc(src); renderCorrectWrong(src);
   }
   function renderSeparation(src) {
     const C = COLORS(), recs = src.records || [], labelled = recs.filter(r => r.grounded_latent === 0 || r.grounded_latent === 1);
@@ -366,6 +368,7 @@
       ? barChart(mk.map(label), [{ name: "accuracy", color: C.primary, values: mk.map(m => pm[m].accuracy) }, { name: "mean FS", color: C.grounded, values: mk.map(m => pm[m].mean_fs) }], { yMin: 0, yMax: 1 }) + legend([{ label: "accuracy", color: C.primary }, { label: "mean FS", color: C.grounded }]) + (mk.includes("unknown") ? `<p class="note">*"unspec." = modality metadata absent in the VQA-RAD mirror (not a bucket); SLAKE carries real ct/mri/xray labels.</p>` : "")
       : `<p class="empty">No per-modality breakdown for this source.</p>`;
     renderBaselines(src);
+    renderAURC(src); renderReliability(src);
   }
   function renderAlphaSlider(src, ab) {
     const wrap = $("#alpha-slider-wrap"); const rc = (ab.fs || {}).risk_coverage;
@@ -623,6 +626,98 @@
       $("#live-choices").addEventListener("keydown", e => { if (e.key === "Enter") runLive(); });
     }
     updateApiStatus();
+  }
+
+  /* ==================================================================
+     Derived-data charts (real-data capable via correct / fs / confidence /
+     n_steps). These deliberately light up on synthetic and read flat/null on
+     the small real sets — shown honestly with sample badges + empty states,
+     never smoothed into a trend the data doesn't support.
+     ================================================================== */
+  function _eqCountBins(n, nb) {   // -> array of [startIdx, endIdx) over a length-n sorted array
+    const out = [];
+    for (let i = 0; i < nb; i++) { const a = Math.floor(i * n / nb), b = Math.floor((i + 1) * n / nb); if (b > a) out.push([a, b]); }
+    return out;
+  }
+  function accByFSBins(recs) {
+    const rs = recs.filter(r => r.fs != null && r.correct != null).sort((a, b) => a.fs - b.fs);
+    if (rs.length < 6) return null;
+    const nb = Math.max(3, Math.min(6, Math.floor(rs.length / 12)));
+    return _eqCountBins(rs.length, nb).map(([a, b]) => { const ch = rs.slice(a, b);
+      return { label: `${ch[0].fs.toFixed(2)}–${ch[ch.length - 1].fs.toFixed(2)}`,
+        acc: ch.reduce((s, r) => s + r.correct, 0) / ch.length, n: ch.length }; });
+  }
+  function renderFSAcc(src) {
+    const C = COLORS(), recs = src.records || []; tagInto("fsacc-src", src);
+    const box = $("#chart-fsacc"); if (!box) return; markMock(box, src);
+    const bins = accByFSBins(recs);
+    if (!bins) { box.innerHTML = `<p class="empty">Need ≥6 scored cases with correctness labels for this view.</p>`; return; }
+    const base = recs.reduce((s, r) => s + (r.correct || 0), 0) / recs.length;
+    box.innerHTML = barChart(bins.map(b => b.label), [{ name: "accuracy", color: C.grounded, values: bins.map(b => b.acc) }],
+      { yMin: 0, yMax: 1, ylab: "answer accuracy", xlab: "Faithfulness Score bin (low → high)", valueLabels: true, hline: base, hlineColor: C.faint })
+      + legend([{ label: "accuracy", color: C.grounded }, { label: `base rate ${pct(base)}`, color: C.faint }])
+      + `<p class="note">Per-bin n: ${bins.map(b => b.n).join(" · ")}. Rising bars ⇒ FS ranks correct answers above wrong ones.</p>`;
+  }
+  function renderCorrectWrong(src) {
+    const C = COLORS(), recs = src.records || []; tagInto("fscw-src", src);
+    const box = $("#chart-fscw"); if (!box) return; markMock(box, src);
+    const g = recs.filter(r => r.correct === 1).map(r => r.fs).filter(v => v != null);
+    const w = recs.filter(r => r.correct === 0).map(r => r.fs).filter(v => v != null);
+    if (g.length < 3 || w.length < 3) { box.innerHTML = `<p class="empty">Need ≥3 correct and ≥3 wrong scored cases for this view.</p>`; return; }
+    box.innerHTML = histogram([{ name: "wrong", color: C.ungrounded, values: w }, { name: "correct", color: C.grounded, values: g }], { xlab: "Faithfulness Score" })
+      + legend([{ label: `correct (n=${g.length})`, color: C.grounded }, { label: `wrong (n=${w.length})`, color: C.ungrounded }]);
+  }
+  function renderAURC(src) {
+    const C = COLORS(), ab = (src.fmr_results || {}).abstention || {}; tagInto("aurc-src", src);
+    const box = $("#chart-aurc"); if (!box) return; markMock(box, src);
+    const defs = [["fs", "Fused FS", C.grounded], ["confidence", "Confidence", C.abstain], ["signal_a_only", "Signal A", C.a], ["signal_b_only", "Signal B", C.b], ["signal_c_only", "Signal C", C.c]];
+    const cats = [], vals = [], cols = [];
+    defs.forEach(d => { const o = ab[d[0]]; if (o && o.aurc != null) { cats.push(d[1] + (o.degenerate ? "*" : "")); vals.push(o.aurc); cols.push(o.degenerate ? C.faint : d[2]); } });
+    if (!cats.length) { box.innerHTML = `<p class="empty">No abstention curves for this source.</p>`; return; }
+    box.innerHTML = barChart(cats, [{ name: "AURC", color: C.primary, colors: cols, values: vals }],
+      { yMin: 0, yMax: Math.min(1, Math.max(...vals) + 0.06), ylab: "AURC (lower = better)", valueLabels: true, labelDigits: 3 })
+      + `<p class="note">Area under risk–coverage; lower is better. *constant/degenerate signal — no discrimination at this n.</p>`;
+  }
+  function reliabilityBins(recs) {
+    const rs = recs.filter(r => r.confidence != null && r.correct != null).sort((a, b) => a.confidence - b.confidence);
+    if (rs.length < 8) return null;
+    const nb = Math.max(3, Math.min(6, Math.floor(rs.length / 10)));
+    return _eqCountBins(rs.length, nb).map(([a, b]) => { const ch = rs.slice(a, b);
+      return { conf: ch.reduce((s, r) => s + r.confidence, 0) / ch.length, acc: ch.reduce((s, r) => s + r.correct, 0) / ch.length, n: ch.length }; });
+  }
+  function renderReliability(src) {
+    const C = COLORS(), recs = src.records || []; tagInto("rel-src", src);
+    const box = $("#chart-reliability"); if (!box) return; markMock(box, src);
+    const b = reliabilityBins(recs);
+    if (!b) { box.innerHTML = `<p class="empty">Need ≥8 scored cases with confidence + correctness for this view.</p>`; return; }
+    const prov = isProvisional(src, srcN(src));
+    box.innerHTML = lineChart([
+      { name: "perfectly calibrated", color: C.faint, points: [[0, 0], [1, 1]], dots: false, provisional: true, width: 1.4 },
+      { name: "observed", color: C.primary, points: b.map(x => [x.conf, x.acc]), width: 2.4, provisional: prov },
+    ], { yMin: 0, yMax: 1, xTicks: [0, .25, .5, .75, 1], xlab: "model confidence", ylab: "empirical accuracy", animate: !prov })
+      + legend([{ label: "observed", color: C.primary }, { label: "perfect calibration", color: C.faint, dash: true }]);
+  }
+  function fsByChainLen(src) {
+    const recs = (src.records || []).filter(r => r.n_steps != null && r.fs != null);
+    const uniq = [...new Set(recs.map(r => r.n_steps))].sort((a, b) => a - b);
+    if (uniq.length < 2 || recs.length < 8) return null;
+    const lo = uniq[0], hi = uniq[uniq.length - 1], nb = Math.min(5, uniq.length), w = (hi - lo + 1) / nb, out = [];
+    for (let i = 0; i < nb; i++) {
+      const a = lo + i * w, b = (i === nb - 1) ? hi + 1 : lo + (i + 1) * w;
+      const ch = recs.filter(r => r.n_steps >= a && r.n_steps < b);
+      if (ch.length) out.push({ label: (nb === uniq.length ? `${Math.round(a)}` : `${Math.round(a)}–${Math.round(b - 1)}`),
+        fs: ch.reduce((s, r) => s + r.fs, 0) / ch.length, n: ch.length });
+    }
+    return out.length > 1 ? out : null;
+  }
+  function renderChainLen(src) {
+    const C = COLORS(); tagInto("chainlen-src", src);
+    const box = $("#chart-chainlen"); if (!box) return; markMock(box, src);
+    const d = fsByChainLen(src);
+    if (!d) { box.innerHTML = `<p class="empty">Chain length is (near-)constant for this source — synthetic uses a fixed chain, so this activates on real data.</p>`; return; }
+    box.innerHTML = barChart(d.map(x => x.label), [{ name: "mean FS", color: C.b, values: d.map(x => x.fs) }],
+      { yMin: 0, yMax: 1, ylab: "mean Faithfulness Score", xlab: "reasoning-chain length (steps)", valueLabels: true })
+      + `<p class="note">Per-bin n: ${d.map(x => x.n).join(" · ")}. Thesis: longer chains drift less-grounded (small real n ⇒ noisy).</p>`;
   }
 
   /* ==================================================================

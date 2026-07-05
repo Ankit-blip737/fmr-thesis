@@ -9,7 +9,7 @@
   <title>FMR — Faithful Medical Reasoning</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=1783235562" />
+  <link rel="stylesheet" href="style.css?v=1783272851" />
   <style id="live-styles">
     /* ---- Live Demo tab (dynamic backend: Colab GPU via ngrok) ---- */
     #view-live .live-grid{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:18px;align-items:start}
@@ -123,6 +123,10 @@
           <p class="cap">Accuracy with the true image vs a blanked / mismatched image. A large drop means the answer genuinely depends on the image.</p>
         </figure>
       </div>
+      <figure class="card hoverable" style="margin-top:18px"><figcaption>Faithfulness vs reasoning-chain length <span id="chainlen-src"></span></figcaption>
+        <div id="chart-chainlen"></div>
+        <p class="cap">Mean FS grouped by how many steps the reasoning chain has. The thesis predicts longer chains drift less-grounded; the synthetic model uses a fixed chain length, so this panel activates on real data (small n → read as a trend cautiously).</p>
+      </figure>
     </section>
 
     <!-- ===== MEASUREMENT ===== -->
@@ -138,6 +142,16 @@
           <div class="seg" id="sep-toggle"></div>
           <div id="chart-sep"></div>
           <p class="cap">Overlap of the selected signal for grounded (green) vs ungrounded (red) cases. Less overlap = more discriminative.</p>
+        </figure>
+      </div>
+      <div class="grid-2" style="margin-top:18px">
+        <figure class="card hoverable"><figcaption>Does FS predict correctness? <span id="fsacc-src"></span></figcaption>
+          <div id="chart-fsacc"></div>
+          <p class="cap">Answer accuracy across equal-count Faithfulness-Score bins. If FS is a useful gate signal, accuracy rises left→right — clear on synthetic; ~flat on the small real sets (Signal B stubbed there), shown honestly rather than smoothed.</p>
+        </figure>
+        <figure class="card hoverable"><figcaption>FS: correct vs wrong answers <span id="fscw-src"></span></figcaption>
+          <div id="chart-fscw"></div>
+          <p class="cap">Distribution of FS for correctly- vs incorrectly-answered cases. Separation means FS carries information about correctness. Uses only the answer label, so it works on real data (unlike the latent-grounding view above).</p>
         </figure>
       </div>
     </section>
@@ -167,6 +181,16 @@
           <div><div id="baselines-table"></div></div>
         </div>
       </figure>
+      <div class="grid-2" style="margin-top:18px">
+        <figure class="card hoverable"><figcaption>AURC by trigger (lower = better) <span id="aurc-src"></span></figcaption>
+          <div id="chart-aurc"></div>
+          <p class="cap">Area under each trigger's risk–coverage curve on the test set — a single-number summary of the curves above. On the small real sets plain confidence is competitive with the fused FS; reported, not hidden. Constant signals are flagged (*).</p>
+        </figure>
+        <figure class="card hoverable"><figcaption>Confidence calibration (reliability) <span id="rel-src"></span></figcaption>
+          <div id="chart-reliability"></div>
+          <p class="cap">Empirical accuracy vs the model's own confidence, in equal-count bins. On the diagonal = well-calibrated; below it = over-confident — motivating a faithfulness signal beyond raw confidence.</p>
+        </figure>
+      </div>
     </section>
 
     <!-- ===== EXPLORER ===== -->
@@ -253,7 +277,7 @@
   <div id="chart-tip"></div>
   <div id="compare-modal"></div>
 
-  <script src="data.js?v=1783235562"></script>
-  <script src="app.js?v=1783235562"></script>
+  <script src="data.js?v=1783272851"></script>
+  <script src="app.js?v=1783272851"></script>
 </body>
 </html>
