@@ -5,8 +5,8 @@
   "max_samples": 300,
   "n_consistency": 5,
   "status": {
-    "baselines": "FAILED: FileNotFoundError: [Errno 2] No such file or directory: 'None/xmlab208/source.jpg'",
-    "blind_test": "FAILED: FileNotFoundError: [Errno 2] No such file or directory: 'None/xmlab208/source.jpg'",
-    "fmr": "FAILED: FileNotFoundError: [Errno 2] No such file or directory: 'None/xmlab13/source.jpg'"
+    "baselines": "ok",
+    "blind_test": "ok",
+    "fmr": "ok"
   }
 }
