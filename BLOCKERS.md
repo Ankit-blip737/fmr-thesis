@@ -150,3 +150,5 @@ gate). Open items needing you:
 ---
 
 
+
+- **[A] 2026-07-04 — GPU results landed mid-overhaul (noted, now integrated as derived-artifact regen — RESOLVED).** During Part-1/Part-2 the Colab runs completed PathVQA + SLAKE FMR stages (real fmr_results/records for all three real datasets now on branch). Handled by regenerating derived artifacts only (recompute_real_abstention tie-aware, run_abstention_baselines, replication verdicts, data.js) — no half-updates. SLAKE (n=75) carries real ct/mri/xray modality labels, so the per-modality breadth view is now live in the dashboard. Real attention→region extraction (Signal B on real) remains the one pending backend item — the Diagnosis step-grounding panel is laid out and will activate when it lands.
