@@ -44,10 +44,11 @@
     return { w, h, p, iw: w - p.l - p.r, ih: h - p.t - p.b,
       open: `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet" role="img">`, close: `</svg>` };
   }
+  let _uid = 0;
   function axes(f, { xTicks = [], yTicks = [], xlab = "", ylab = "" }, C) {
     let s = "";
     yTicks.forEach(t => { const y = f.p.t + f.ih - t.f * f.ih;
-      s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${C.line}"/>`;
+      s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${C.line}" stroke-dasharray="1 5" stroke-linecap="round" opacity="0.9"/>`;
       s += `<text x="${f.p.l - 6}" y="${y + 3}" text-anchor="end" font-size="10" fill="${C.faint}">${t.label}</text>`; });
     xTicks.forEach(t => { const x = f.p.l + t.f * f.iw;
       s += `<text x="${x}" y="${f.p.t + f.ih + 15}" text-anchor="middle" font-size="10" fill="${C.faint}">${t.label}</text>`; });
@@ -71,21 +72,25 @@
     const fx = x => f.p.l + (xhi === xlo ? .5 : (x - xlo) / (xhi - xlo)) * f.iw;
     const fy = y => f.p.t + f.ih - sc.f(y) * f.ih;
     const xTicks = (opt.xTicks || [...new Set(xs)]).map(x => ({ f: xhi === xlo ? .5 : (x - xlo) / (xhi - xlo), label: opt.xFmt ? opt.xFmt(x) : x }));
-    let s = f.open + axes(f, { xTicks, yTicks: yticks(sc), xlab: opt.xlab, ylab: opt.ylab }, C);
-    if (opt.hline !== undefined) { const y = fy(opt.hline); s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${opt.hlineColor || C.ink}" stroke-dasharray="3 3"/>`; }
-    series.forEach(se => {
+    const gid = "g" + (++_uid);
+    let s = f.open + `<defs><filter id="glow${gid}" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="${(series[0]||{}).color||C.primary}" flood-opacity="0.35"/></filter></defs>`;
+    s += axes(f, { xTicks, yTicks: yticks(sc), xlab: opt.xlab, ylab: opt.ylab }, C);
+    if (opt.hline !== undefined) { const y = fy(opt.hline); s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${opt.hlineColor || C.ink}" stroke-dasharray="3 4" opacity="0.7"/>`; }
+    series.forEach((se, si) => {
       const d = se.points.map((p, i) => (i ? "L" : "M") + fx(p[0]) + " " + fy(p[1])).join(" ");
-      const dash = se.provisional ? `stroke-dasharray="6 4"` : (se.dash ? `stroke-dasharray="5 4"` : "");
-      const op = se.provisional ? 0.72 : 1;
-      const len = 1400;
-      s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.width || 2}" opacity="${op}" ${dash}
-             stroke-dasharray="${se.provisional ? '6 4' : len}" ${se.provisional ? '' : `stroke-dashoffset="${len}"`}>`;
-      if (!se.provisional && opt.animate !== false) s += `<animate attributeName="stroke-dashoffset" from="${len}" to="0" dur="0.7s" fill="freeze"/>`;
+      const op = se.provisional ? 0.7 : 1;
+      const len = 1600, primary = !se.provisional && (se.width || 2) >= 2.2;
+      const glow = primary ? `filter="url(#glow${gid})"` : "";
+      const dashAttr = se.provisional ? `stroke-dasharray="7 4"` : `stroke-dasharray="${len}" stroke-dashoffset="${len}"`;
+      s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.width || 2}" opacity="${op}" stroke-linecap="round" stroke-linejoin="round" ${glow} ${dashAttr}>`;
+      if (!se.provisional && opt.animate !== false) s += `<animate attributeName="stroke-dashoffset" from="${len}" to="0" dur="0.8s" fill="freeze"/>`;
       s += `</path>`;
       if (se.dots !== false) se.points.forEach(p => {
         const tt = `<div class='tt-h'>${esc(se.name)}</div>${opt.xlab ? opt.xlab : 'x'} ${opt.xFmt ? opt.xFmt(p[0]) : (+p[0]).toFixed(2)} · ${(opt.ylab || 'y')} ${(+p[1]).toFixed(3)}`;
-        s += `<circle cx="${fx(p[0])}" cy="${fy(p[1])}" r="${se.provisional ? 3 : 3.2}" fill="${se.color}" opacity="${op}"/>`;
-        s += `<circle class="pt" data-tip="${esc(tt)}" cx="${fx(p[0])}" cy="${fy(p[1])}" r="9" fill="transparent" style="cursor:pointer"/>`;
+        // ring dot: colored ring with a surface-colored core (crisper, more premium)
+        s += `<circle cx="${fx(p[0])}" cy="${fy(p[1])}" r="${se.provisional ? 2.6 : 3.4}" fill="${C.surface}" stroke="${se.color}" stroke-width="${se.provisional ? 1.6 : 2}" opacity="${op}"/>`;
+        s += `<circle class="pt" data-tip="${esc(tt)}" cx="${fx(p[0])}" cy="${fy(p[1])}" r="10" fill="transparent" style="cursor:pointer"/>`;
       });
     });
     (opt.marks || []).forEach(m => { s += `<path class="pt" data-tip="${esc(m.tip || '')}" d="M${fx(m.x)} ${fy(m.y)} l-6 -11 l12 0 z" fill="${m.color || C.ungrounded}"/>`; });
@@ -99,14 +104,21 @@
     const n = categories.length, g = series.length, bandW = f.iw / n, barW = Math.min(46, (bandW * .72) / g);
     const fy = y => f.p.t + f.ih - sc.f(y) * f.ih;
     const xTicks = categories.map((c, i) => ({ f: (i + .5) / n, label: c }));
-    let s = f.open + axes(f, { xTicks, yTicks: yticks(sc), ylab: opt.ylab }, C);
-    if (opt.hline !== undefined) { const y = fy(opt.hline); s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${opt.hlineColor || C.faint}" stroke-dasharray="4 3"/>`; }
+    // one vertical gradient per unique bar color (top brighter → base color)
+    const gid = "b" + (++_uid), colorsUsed = new Set();
+    series.forEach((se, j) => categories.forEach((_, i) => colorsUsed.add((se.colors && se.colors[i]) || se.color)));
+    const gradOf = new Map(); let defs = "";
+    [...colorsUsed].forEach((col, k) => { const id = `${gid}_${k}`; gradOf.set(col, id);
+      defs += `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${col}" stop-opacity="1"/><stop offset="1" stop-color="${col}" stop-opacity="0.62"/></linearGradient>`; });
+    let s = f.open + `<defs>${defs}</defs>` + axes(f, { xTicks, yTicks: yticks(sc), ylab: opt.ylab }, C);
+    if (opt.hline !== undefined) { const y = fy(opt.hline); s += `<line x1="${f.p.l}" y1="${y}" x2="${f.p.l + f.iw}" y2="${y}" stroke="${opt.hlineColor || C.faint}" stroke-dasharray="4 3" opacity="0.75"/>`; }
     categories.forEach((c, i) => { const cx = f.p.l + bandW * (i + .5);
       series.forEach((se, j) => { const v = se.values[i]; if (v == null || Number.isNaN(v)) return;
         const x = cx - (g * barW) / 2 + j * barW, y = fy(Math.max(v, sc.lo)), h = Math.max(0, fy(sc.lo) - y);
         const col = (se.colors && se.colors[i]) || se.color;
         const tt = `<div class='tt-h'>${esc(se.name)}</div>${esc(c)}: ${fmt(v, opt.labelDigits ?? 3)}`;
-        s += `<rect class="pt" data-tip="${esc(tt)}" x="${x}" y="${y}" width="${barW - 2}" height="0" rx="3" fill="${col}" style="cursor:pointer">`;
+        s += `<rect class="pt" data-tip="${esc(tt)}" x="${x}" y="${y}" width="${barW - 2}" height="0" rx="4" fill="url(#${gradOf.get(col)})" style="cursor:pointer">`;
         if (opt.animate !== false) s += `<animate attributeName="height" from="0" to="${h}" dur="0.6s" fill="freeze"/><animate attributeName="y" from="${fy(sc.lo)}" to="${y}" dur="0.6s" fill="freeze"/>`;
         else s += `<set attributeName="height" to="${h}"/>`;
         s += `</rect>`;
@@ -151,18 +163,34 @@
   /* ==================================================================
      TAB: Overview
      ================================================================== */
+  // compact inline stroke icons (24x24, currentColor)
+  const ICON = {
+    image: '<path d="M3 5h18v14H3z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="10" r="1.8" fill="currentColor"/><path d="M21 17l-5-5-4 4-2-2-4 4" fill="none" stroke="currentColor" stroke-width="2"/>',
+    signals: '<path d="M4 20V10M10 20V4M16 20v-8M22 20V7" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    gauge: '<path d="M12 13l5-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M4 18a8 8 0 1 1 16 0" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/>',
+    wrench: '<path d="M14.5 6a3.5 3.5 0 0 0-4.6 4.3l-6 6 2.8 2.8 6-6A3.5 3.5 0 0 0 18 8.6l-2.3 2.3-1.8-1.8L16.2 6.8A3.5 3.5 0 0 0 14.5 6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+    shield: '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    branch: '<path d="M7 4v6a4 4 0 0 0 4 4h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="7" cy="4" r="2.2" fill="currentColor"/><circle cx="18" cy="14" r="2.2" fill="currentColor"/>',
+    trend: '<path d="M3 17l6-6 4 4 8-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 7h6v6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+    target: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/>',
+    filter: '<path d="M3 5h18l-7 8v5l-4 2v-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+    db: '<ellipse cx="12" cy="6" rx="7" ry="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" fill="none" stroke="currentColor" stroke-width="2"/>',
+    arrow: '<path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  };
+  const svgIc = (name, sz = 24) => `<svg viewBox="0 0 24 24" width="${sz}" height="${sz}" aria-hidden="true">${ICON[name] || ""}</svg>`;
+
   function miniFlow() {
     const C = COLORS();
     const nodes = [
-      { t: "Image + Q", c: C.faint }, { t: "3 Signals", c: C.a }, { t: "Fused FS", c: C.b },
-      { t: "Correct", c: C.abstain }, { t: "Abstain gate", c: C.grounded }, { t: "Answer / Defer", c: C.primary }];
-    const W = 720, H = 74, gap = 12, bw = (W - gap * (nodes.length - 1)) / nodes.length;
-    let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">`;
-    nodes.forEach((nd, i) => { const x = i * (bw + gap);
-      s += `<rect x="${x}" y="12" width="${bw}" height="42" rx="9" fill="${C.surface}" stroke="${nd.c}" stroke-width="1.5"/>`;
-      s += `<text x="${x + bw / 2}" y="37" text-anchor="middle" font-size="12" font-weight="600" fill="${C.ink}">${nd.t}</text>`;
-      if (i < nodes.length - 1) s += `<text x="${x + bw + gap / 2}" y="37" text-anchor="middle" font-size="15" fill="${C.faint}">→</text>`; });
-    return s + `</svg>`;
+      { t: "Image + Q", ic: "image", c: C.faint }, { t: "3 Signals", ic: "signals", c: C.a },
+      { t: "Fused FS", ic: "gauge", c: C.b }, { t: "Correct", ic: "wrench", c: C.abstain },
+      { t: "Abstain gate", ic: "shield", c: C.grounded }, { t: "Answer / Defer", ic: "branch", c: C.primary }];
+    let s = `<div class="mflow">`;
+    nodes.forEach((nd, i) => {
+      s += `<div class="mflow-node" style="--mc:${nd.c}"><span class="m-ic">${svgIc(nd.ic, 18)}</span><span class="m-t">${nd.t}</span></div>`;
+      if (i < nodes.length - 1) s += `<div class="mflow-arrow">${svgIc("arrow", 20)}</div>`;
+    });
+    return s + `</div>`;
   }
   function countUp(node, target, d = 3, suffix = "") {
     if (target == null || Number.isNaN(target)) { node.textContent = "—"; return; }
@@ -177,13 +205,18 @@
     const head = (rep.primary_evidence === "blind_gap" || rep.drift_available === false)
       ? { k: "Image-reliance gap", v: rep.blind_gap_reasoning, d: 3, s: rep.blind_gap_supports ? `< non-reasoning ${fmt(rep.blind_gap_nonreasoning, 3)} ✓` : (rep.both_image_independent ? "both image-independent" : "vs non-reasoning") }
       : { k: "Grounding drift slope", v: rep.drift_slope, d: 3, s: rep.replicated ? "decays along chain ✓" : "no decay" };
+    const C = COLORS();
+    head.ic = "trend"; head.accent = C.secondary; head.headline = true;
     const cards = [
       head,
-      { k: "Fused-FS separation", v: val.auroc_fs != null ? val.auroc_fs : null, d: 3, s: val.auroc_fs != null ? "AUROC vs grounding" : "no grounding labels (real)" },
-      { k: "Answered @ gate", v: gate.coverage != null ? gate.coverage : null, d: 2, pctv: true, s: gate.coverage ? `err ${pct(gate.retained_error)} · α=${fmt(ab.alpha, 2)}` : `abstain-all · α=${fmt(ab.alpha, 2)}` },
-      { k: "Test cases", v: n, d: 0, s: (src.kind === "real" ? "real" : "synthetic") + " dataset" },
+      { k: "Fused-FS separation", ic: "target", accent: C.grounded, v: val.auroc_fs != null ? val.auroc_fs : null, d: 3, s: val.auroc_fs != null ? "AUROC vs grounding" : "no grounding labels (real)" },
+      { k: "Answered @ gate", ic: "filter", accent: C.primary, v: gate.coverage != null ? gate.coverage : null, d: 2, pctv: true, s: gate.coverage ? `err ${pct(gate.retained_error)} · α=${fmt(ab.alpha, 2)}` : `abstain-all · α=${fmt(ab.alpha, 2)}` },
+      { k: "Test cases", ic: "db", accent: C.abstain, v: n, d: 0, s: (src.kind === "real" ? "real" : "synthetic") + " dataset" },
     ];
-    $("#stat-cards").innerHTML = cards.map(c => `<div class="card stat hoverable"><div class="k">${c.k}</div><div class="v" data-target="${c.v ?? ""}" data-d="${c.d}" data-pct="${c.pctv ? 1 : 0}">—</div><div class="s">${c.s}</div></div>`).join("");
+    $("#stat-cards").innerHTML = cards.map(c => `<div class="card stat hoverable ${c.headline ? "headline" : ""}" style="--accent:${c.accent}">
+      <div class="k"><span class="stat-ic">${svgIc(c.ic, 15)}</span>${c.k}</div>
+      <div class="v" data-target="${c.v ?? ""}" data-d="${c.d}" data-pct="${c.pctv ? 1 : 0}">—</div>
+      <div class="s">${c.s}</div></div>`).join("");
     $$("#stat-cards .v").forEach(node => { const tg = node.getAttribute("data-target");
       if (tg === "" || tg === "null") { node.textContent = "—"; return; }
       const isPct = node.getAttribute("data-pct") === "1"; countUp(node, isPct ? +tg * 100 : +tg, isPct ? 1 : +node.getAttribute("data-d"), isPct ? "%" : ""); });
