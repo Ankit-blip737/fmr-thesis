@@ -1,51 +1,53 @@
 {
   "model": "google/medgemma-4b-it",
   "n": 40,
-  "acc_before": 0.475,
-  "fs_before_mean": 0.0,
+  "acc_before": 0.775,
+  "image_sensitivity_L1": 0.6101507302586293,
+  "adapter_conditions_on_image": true,
+  "fs_before_mean": 0.34992117291996483,
   "sweep": [
     {
       "vcd_margin": 0.0,
-      "acc_after": 0.475,
-      "answers_changed": 0,
-      "fs_after_mean": 0.0
+      "acc_after": 0.75,
+      "answers_changed": 1,
+      "fs_after_mean": 0.3521257296360627
     },
     {
       "vcd_margin": 0.25,
-      "acc_after": 0.475,
-      "answers_changed": 0,
-      "fs_after_mean": 0.0
+      "acc_after": 0.75,
+      "answers_changed": 1,
+      "fs_after_mean": 0.3521257296360627
     },
     {
       "vcd_margin": 0.5,
-      "acc_after": 0.475,
-      "answers_changed": 0,
-      "fs_after_mean": 0.0
+      "acc_after": 0.75,
+      "answers_changed": 1,
+      "fs_after_mean": 0.3521257296360627
     },
     {
       "vcd_margin": 1.0,
-      "acc_after": 0.475,
+      "acc_after": 0.775,
       "answers_changed": 0,
-      "fs_after_mean": 0.0
+      "fs_after_mean": 0.3521257296360627
     },
     {
       "vcd_margin": 2.0,
-      "acc_after": 0.475,
+      "acc_after": 0.775,
       "answers_changed": 0,
-      "fs_after_mean": 0.0
+      "fs_after_mean": 0.3521257296360627
     },
     {
       "vcd_margin": null,
-      "acc_after": 0.475,
+      "acc_after": 0.775,
       "answers_changed": 0,
-      "fs_after_mean": 0.0
+      "fs_after_mean": 0.3521257296360627
     }
   ],
   "safe_operating_point": {
-    "vcd_margin": 0.0,
-    "acc_after": 0.475,
+    "vcd_margin": 1.0,
+    "acc_after": 0.775,
     "answers_changed": 0,
-    "fs_after_mean": 0.0
+    "fs_after_mean": 0.3521257296360627
   },
-  "seconds": 3126.1
+  "seconds": 4059.8
 }
