@@ -69,6 +69,8 @@ from fmr.types import Sample
 # Config                                                                       #
 # --------------------------------------------------------------------------- #
 MODEL_ID = os.environ.get("FMR_MODEL_ID", "JZPeterPan/MedVLM-R1")
+DEVICE = os.environ.get("FMR_DEVICE", "cuda")                  # "cuda" | "cpu"
+DTYPE = os.environ.get("FMR_DTYPE", "fp16")                    # fp16|bf16|fp32|auto (use fp32 on CPU)
 N_CONSISTENCY = int(os.environ.get("FMR_N_CONSISTENCY", 5))    # the "5 passes"
 CONSISTENCY_TEMPERATURE = float(os.environ.get("FMR_CONS_TEMP", 0.7))
 ALPHA = float(os.environ.get("FMR_ALPHA", 0.15))               # retained-error target
@@ -92,7 +94,7 @@ def get_vlm() -> HFVLM:
     """Lazily construct the MedVLM-R1 wrapper (weights load on first ``generate``)."""
     global _VLM
     if _VLM is None:
-        _VLM = HFVLM(model_id=MODEL_ID, device="cuda", is_reasoning=True)
+        _VLM = HFVLM(model_id=MODEL_ID, device=DEVICE, dtype=DTYPE, is_reasoning=True)
     return _VLM
 
 
@@ -195,7 +197,8 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "model_loaded": _VLM is not None, "model": MODEL_ID}
+    return {"ok": True, "model_loaded": _VLM is not None, "model": MODEL_ID,
+            "device": DEVICE, "dtype": DTYPE}
 
 
 @app.post("/analyze")

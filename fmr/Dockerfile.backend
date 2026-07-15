@@ -1,0 +1,37 @@
+# FMR live backend — CPU-only image (FastAPI + MedVLM-R1 via HFVLM).
+# CPU inference is slow (minutes per /analyze across ~8 forward passes); this is
+# for self-hosting / CI / demos without a GPU. To run on a GPU host instead, see
+# the commented CUDA path below and set FMR_DEVICE=cuda / FMR_DTYPE=fp16.
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/models \
+    FMR_DEVICE=cpu \
+    FMR_DTYPE=fp32
+
+WORKDIR /app
+
+# Dependencies first (own layer -> not reinstalled when only app code changes).
+# CPU-only PyTorch from the dedicated wheel index keeps the image CUDA-free
+# (several GB smaller). For a GPU image, drop the --index-url line and instead
+# base on an nvidia/cuda + cudnn runtime image with the matching torch build.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
+ && pip install --no-cache-dir \
+      "fastapi>=0.110" "uvicorn[standard]>=0.29" python-multipart \
+      "transformers>=4.49" accelerate qwen-vl-utils pillow \
+      numpy scipy scikit-learn pyyaml
+
+# App code + the persisted calibration split the conformal gate calibrates from
+# at startup (outputs/real/<dataset>/fmr_records.json). api.py self-locates all
+# paths relative to /app, and adds /app/src to sys.path.
+COPY src/ ./src/
+COPY configs/ ./configs/
+COPY outputs/real/ ./outputs/real/
+COPY api.py ./api.py
+
+EXPOSE 8000
+
+# Single worker: inference is serialized by an in-process lock (one model, and
+# each request already saturates the CPU), so extra workers only waste RAM.
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

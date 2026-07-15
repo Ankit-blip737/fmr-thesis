@@ -132,7 +132,8 @@ class HFVLM:
 
         self._patch_config_for_strict_hub()
 
-        td = {"auto": "auto", "fp16": torch.float16, "bf16": torch.bfloat16}.get(self.dtype, torch.float16)
+        td = {"auto": "auto", "fp16": torch.float16, "bf16": torch.bfloat16,
+              "fp32": torch.float32, "float32": torch.float32}.get(self.dtype, torch.float16)
         # Bound the processor's pixel budget too (belt-and-suspenders with the
         # image resize in _load_image), so vision-token count stays small.
         px = self.max_image_side * self.max_image_side
