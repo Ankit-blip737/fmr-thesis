@@ -1,0 +1,17 @@
+{
+  "name": "fmr-dashboard",
+  "version": "1.0.0",
+  "description": "Faithful Medical Reasoning Dashboard",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Static site - no build needed'",
+    "lint": "echo 'No linter configured'",
+    "test": "echo 'No tests configured'"
+  },
+  "keywords": ["medical", "reasoning", "dashboard"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/analytics": "^1.1.1"
+  }
+}

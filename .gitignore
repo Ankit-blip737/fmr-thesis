@@ -9,6 +9,9 @@ dist/
 .venv/
 venv/
 
+# Node.js dependencies
+node_modules/
+
 # Downloaded datasets (never committed; rebuilt via scripts/prepare_data.py)
 fmr/data_cache/
 
