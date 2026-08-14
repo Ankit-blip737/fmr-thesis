@@ -46,7 +46,8 @@ import make_figures
 
 def _write_configs(dataset: str, model_key: str, reasoning: str, non_reasoning: str,
                     max_samples: int | None, n: int | None, split: str,
-                    image_root: str | None = None) -> Path:
+                    image_root: str | None = None,
+                    bbox_file: str | None = None) -> Path:
     """Materialize an override config dir; returns its path."""
     base = {name: yaml.safe_load((CONFIG_DIR / f"{name}.yaml").read_text())
             for name in ("data", "models", "experiment")}
@@ -62,6 +63,8 @@ def _write_configs(dataset: str, model_key: str, reasoning: str, non_reasoning: 
         data[dataset]["split"] = split
         if image_root:
             data[dataset]["image_root"] = image_root
+        if bbox_file:
+            data[dataset]["bbox_file"] = str(Path(bbox_file).resolve())
 
     models["model"] = model_key or reasoning
     models["comparison"] = {"reasoning_model": reasoning, "non_reasoning_model": non_reasoning}
@@ -115,6 +118,8 @@ def main() -> None:
                     help="skip entire dataset if all stages already ok in run_status.json")
     ap.add_argument("--resume", action="store_true",
                     help="skip individual stages already marked ok in run_status.json")
+    ap.add_argument("--bboxes", default=None,
+                    help="JSON file with bounding boxes for Signal B IoU")
     args = ap.parse_args()
 
     out = f"fmr/outputs/real/{args.dataset}"
@@ -131,7 +136,8 @@ def main() -> None:
             return
 
     cfg_dir = _write_configs(args.dataset, args.model, args.reasoning, args.non_reasoning,
-                             args.max_samples, args.n, args.split, args.image_root)
+                             args.max_samples, args.n, args.split, args.image_root,
+                             args.bboxes)
 
     if args.n_consistency is not None:
         exp = yaml.safe_load((cfg_dir / "experiment.yaml").read_text())

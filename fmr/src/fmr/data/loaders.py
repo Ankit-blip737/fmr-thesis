@@ -16,6 +16,7 @@ Design choices (see DECISIONS.md):
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +67,24 @@ def _norm_answer(ans: Any) -> str:
 _YESNO = {"yes", "no"}
 
 
+def _get_image_size(img: Any) -> tuple[int | None, int | None]:
+    """Return (width, height) for a PIL image or an image file path."""
+    if img is None:
+        return None, None
+    # PIL Image object
+    if hasattr(img, "size"):
+        return img.size  # (width, height)
+    # File path
+    if isinstance(img, str) and Path(img).is_file():
+        try:
+            from PIL import Image
+            with Image.open(img) as pil_img:
+                return pil_img.size
+        except Exception:
+            return None, None
+    return None, None
+
+
 def _load_hf(name: str, config: dict[str, Any]) -> list[Sample]:
     """Load VQA-RAD / SLAKE / PathVQA from a public HF mirror.
 
@@ -79,6 +98,16 @@ def _load_hf(name: str, config: dict[str, Any]) -> list[Sample]:
         separately) — Signal B IoU on real SLAKE stays unvalidated until masks
         are wired (see BLOCKERS.md); we still get true modality labels here.
       * pathvqa (flaviagiammarino/path-vqa): image/question/answer; all pathology.
+
+    External bounding boxes
+    -----------------------
+    When ``bbox_file`` is set in the config (a path to a JSON file), it is loaded
+    and used to attach ``gt_region`` for Signal B IoU validation. The JSON format:
+
+      For SLAKE: ``{img_name: {location: [x, y, w, h]}}``
+      For VQA-RAD/PathVQA: ``{sample_id: [x, y, w, h]}``
+
+    Bounding boxes are in pixel coordinates; ``bbox_to_region()`` normalizes them.
     """
     try:
         from datasets import load_dataset as hf_load
@@ -91,6 +120,13 @@ def _load_hf(name: str, config: dict[str, Any]) -> list[Sample]:
     cache_dir = config.get("cache_dir")
     english_only = config.get("english_only", True)
     image_root = config.get("image_root")
+    bbox_file = config.get("bbox_file")
+
+    # Load external bounding boxes if provided.
+    bboxes: dict = {}
+    if bbox_file and Path(bbox_file).is_file():
+        bboxes = json.loads(Path(bbox_file).read_text())
+        print(f"[loader] loaded {len(bboxes)} bounding-box entries from {bbox_file}")
 
     ds = hf_load(repo, split=split, cache_dir=cache_dir)
 
@@ -118,14 +154,38 @@ def _load_hf(name: str, config: dict[str, Any]) -> list[Sample]:
         answer_type = str(row.get("answer_type", "")).upper()
         choices = ["yes", "no"] if (a in _YESNO and answer_type != "OPEN") else None
 
+        # Resolve ground-truth bounding box from external file.
+        sample_id = f"{name}-{split}-{i:06d}"
+        gt_region = None
+        if bboxes:
+            # SLAKE bboxes are keyed by img_name -> {location: [x,y,w,h]}
+            img_name = row.get("img_name")
+            location = (row.get("location") or "").strip()
+            if img_name and img_name in bboxes:
+                entry = bboxes[img_name]
+                # entry is either {location: [x,y,w,h]} or [x,y,w,h]
+                bbox = entry.get(location, entry) if isinstance(entry, dict) else entry
+                if isinstance(bbox, list) and len(bbox) == 4:
+                    # Need image dimensions for normalization
+                    iw, ih = _get_image_size(img)
+                    if iw and ih:
+                        gt_region = bbox_to_region(bbox, iw, ih)
+            # VQA-RAD/PathVQA bboxes are keyed by sample_id -> [x,y,w,h]
+            elif sample_id in bboxes:
+                bbox = bboxes[sample_id]
+                if isinstance(bbox, list) and len(bbox) == 4:
+                    iw, ih = _get_image_size(img)
+                    if iw and ih:
+                        gt_region = bbox_to_region(bbox, iw, ih)
+
         samples.append(
             Sample(
-                sample_id=f"{name}-{split}-{i:06d}",
+                sample_id=sample_id,
                 question=str(q),
                 answer=a,
                 modality=modality,
                 image=img,
-                gt_region=None,   # no per-QA boxes in these mirrors; see docstring
+                gt_region=gt_region,
                 answer_choices=choices,
                 meta={
                     "source": name, "raw_answer": row.get("answer"),
@@ -138,6 +198,10 @@ def _load_hf(name: str, config: dict[str, Any]) -> list[Sample]:
         )
         if max_samples and len(samples) >= int(max_samples):
             break
+
+    n_with_bbox = sum(1 for s in samples if s.gt_region is not None)
+    if bboxes:
+        print(f"[loader] {n_with_bbox}/{len(samples)} samples have gt_region attached")
     return samples
 
 
