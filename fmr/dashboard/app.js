@@ -210,7 +210,7 @@
     const cards = [
       head,
       { k: "Fused-FS separation", ic: "target", accent: C.grounded, v: val.auroc_fs != null ? val.auroc_fs : null, d: 3, s: val.auroc_fs != null ? "AUROC vs grounding" : "no grounding labels (real)" },
-      { k: "Answered @ gate", ic: "filter", accent: C.primary, v: gate.coverage != null ? gate.coverage : null, d: 2, pctv: true, s: gate.coverage ? `err ${pct(gate.retained_error)} · α=${fmt(ab.alpha, 2)}` : `abstain-all · α=${fmt(ab.alpha, 2)}` },
+      { k: "Answered @ gate", ic: "filter", accent: C.primary, v: gate.coverage != null ? gate.coverage : (ab.fs && !ab.fs.feasible ? "infeasible" : null), d: 2, pctv: true, s: (ab.fs && !ab.fs.feasible) ? `too few samples / model accuracy too low` : (gate.coverage != null ? `err ${pct(gate.retained_error)} · α=${fmt(ab.alpha, 2)}` : `abstain-all · α=${fmt(ab.alpha, 2)}`) },
       { k: "Test cases", ic: "db", accent: C.abstain, v: n, d: 0, s: (src.kind === "real" ? "real" : "synthetic") + " dataset" },
     ];
     $("#stat-cards").innerHTML = cards.map(c => `<div class="card stat hoverable ${c.headline ? "headline" : ""}" style="--accent:${c.accent}">
@@ -219,6 +219,7 @@
       <div class="s">${c.s}</div></div>`).join("");
     $$("#stat-cards .v").forEach(node => { const tg = node.getAttribute("data-target");
       if (tg === "" || tg === "null") { node.textContent = "—"; return; }
+      if (tg === "infeasible") { node.innerHTML = `<span style="font-size: 16px; font-weight: bold; color: var(--abstain)">INFEASIBLE</span>`; return; }
       const isPct = node.getAttribute("data-pct") === "1"; countUp(node, isPct ? +tg * 100 : +tg, isPct ? 1 : +node.getAttribute("data-d"), isPct ? "%" : ""); });
     $("#mini-flow").innerHTML = miniFlow();
     $("#provenance").textContent = `Source: ${src.label || "—"} · dataset "${fr.dataset || bt.dataset || "?"}" · bundle generated ${DATA.generated_at || "?"}`;
@@ -358,7 +359,7 @@
       <div class="row"><span>Coverage (answered)</span><b>${pct(t.coverage)}</b></div>
       <div class="row"><span>Error on answered</span><b>${pct(t.retained_error)}</b></div>
       <div class="row"><span>Feasible / holds</span><b>${g.feasible ? "yes" : "no"} / ${hold ? "✓" : "✕"}</b></div>
-      ${!g.feasible ? `<div class="gate-flag abstain">⚠ Gate INFEASIBLE at α=${fmt(ab.alpha, 2)} → the safe output is <b>abstain-all</b> (need more calibration data). Shown, not hidden.</div>` : ""}
+      ${!g.feasible ? `<div class="gate-flag abstain">⚠ Gate INFEASIBLE at α=${fmt(ab.alpha, 2)} → the safe output is <b>abstain-all</b> (too few samples or model accuracy too low to calibrate). Shown, not hidden.</div>` : ""}
       ${ab.provisional_pre_correction ? `<p class="note" style="margin-top:8px">Provisional: pre-correction FS.</p>` : ""}`;
 
     const pm = (src.fmr_results || {}).per_modality || {}, mk = Object.keys(pm);
@@ -411,7 +412,7 @@
   /* ==================================================================
      TAB: Case Explorer
      ================================================================== */
-  function decisionFor(src, r) { const t = src.fs_threshold; if (t == null) return null; return r.fs >= t ? "answer" : "abstain"; }
+  function decisionFor(src, r) { const t = src.fs_threshold; if (t == null) return "infeasible"; return r.fs >= t ? "answer" : "abstain"; }
   function renderExplorer(src) {
     const recs = src.records || [];
     const filters = [["all", "All"], ["answer", "Answered"], ["abstain", "Abstained"], ["grounded", "Grounded"], ["ungrounded", "Ungrounded"]];
@@ -422,7 +423,7 @@
     const q = (STATE.search || "").toLowerCase();
     const pass = r => { const d = decisionFor(src, r);
       if (STATE.filter === "answer" && d !== "answer") return false;
-      if (STATE.filter === "abstain" && d !== "abstain") return false;
+      if (STATE.filter === "abstain" && (d !== "abstain" && d !== "infeasible")) return false;
       if (STATE.filter === "grounded" && r.grounded_latent !== 1) return false;
       if (STATE.filter === "ungrounded" && r.grounded_latent !== 0) return false;
       if (q && !((r.question || "") + " " + (r.answer || "") + " " + (r.gt_answer || "")).toLowerCase().includes(q)) return false;
@@ -435,7 +436,7 @@
         ${gl === 1 ? '<span class="dot g"></span>' : gl === 0 ? '<span class="dot u"></span>' : ''}
         <span class="cq">${esc(r.question || r.sample_id)}</span>
         <span class="ans">${esc(String(r.answer))}${r.correct != null ? (r.correct ? " ✓" : " ✗") : ""}</span>
-        ${d ? `<span class="pill ${d}">${d}</span>` : ""}</button>`; }).join("");
+        ${d ? `<span class="pill ${d}" ${d === 'infeasible' ? 'style="background:color-mix(in srgb, var(--abstain) 20%, transparent);color:var(--abstain);"' : ''}>${d === 'infeasible' ? 'NO GATE' : d}</span>` : ""}</button>`; }).join("");
     listEl.querySelectorAll(".case-item").forEach(b => b.onclick = () => { STATE.caseIdx = b.dataset.id; renderExplorer(src); });
     const chosen = list.find(r => r.sample_id === STATE.caseIdx) || list[0]; STATE.caseIdx = chosen.sample_id; renderCase(src, chosen);
     listEl.querySelectorAll(".case-item").forEach(b => b.classList.toggle("active", b.dataset.id === chosen.sample_id));
@@ -453,7 +454,7 @@
         <div class="ans-box truth"><div class="lab">Ground truth</div><div class="val">${esc(String(r.gt_answer))}</div></div>
         ${r.grounded_latent != null ? `<div class="ans-box"><div class="lab">Latent</div><div class="val"><span class="pill ${r.grounded_latent ? "correct" : "wrong"}">${r.grounded_latent ? "grounded" : "ungrounded"}</span></div></div>` : ""}
       </div>
-      ${d ? `<div class="decision ${d}">${d === "answer" ? "✓ ANSWER" : "⚠ ABSTAIN → defer to clinician"}</div>` : ""}
+      ${d ? `<div class="decision ${d}" ${d === 'infeasible' ? 'style="background:color-mix(in srgb, var(--abstain) 20%, transparent);color:var(--abstain);"' : ''}>${d === "answer" ? "✓ ANSWER" : (d === "abstain" ? "⚠ ABSTAIN → defer to clinician" : "🟡 NO GATE (INFEASIBLE)")}</div>` : ""}
       <div class="sigbars">
         ${sig("Signal A · counterfactual", r.signal_a, C.a)}
         ${sig("Signal B · grounding", r.signal_b, C.b)}

@@ -33,12 +33,16 @@ from typing import Any
 
 import numpy as np
 
+from ..eval.judge import HeuristicJudge
 from ..models.base_vlm import BaseVLM
 from ..types import Sample
 from ..utils import clip01
 from .attention import attention_signal, iou_labels
 from .consistency import consistency_signal
 from .counterfactual import counterfactual_signal
+
+# Singleton judge — avoids re-creating per sample.
+_JUDGE = HeuristicJudge()
 
 
 def _top2_margin(logits) -> float:
@@ -66,7 +70,18 @@ DEFAULT_WEIGHTS = {"a": 0.4, "b": 0.3, "c": 0.3}
 
 
 def fuse(a: float, b: float, c: float, weights: dict[str, float] | None = None) -> float:
-    w = weights or DEFAULT_WEIGHTS
+    w = dict(weights or DEFAULT_WEIGHTS)  # copy so we don't mutate default
+    # When Signal B is uninstrumented (constant 0.5 = no bounding boxes),
+    # redistribute its weight proportionally to Signals A and C so the FS
+    # range is not artificially compressed.
+    if abs(b - 0.5) < 1e-6 and w["b"] > 0:
+        wa, wc = w["a"], w["c"]
+        share = w["b"]
+        denom = wa + wc or 1.0
+        w["a"] = wa + share * (wa / denom)
+        w["c"] = wc + share * (wc / denom)
+        w["b"] = 0.0
+        b = 0.0  # zero out the constant noise term
     total = w["a"] + w["b"] + w["c"]
     return clip01((w["a"] * a + w["b"] * b + w["c"] * c) / total)
 
@@ -111,7 +126,10 @@ def compute_faithfulness(
         "gt_answer": sample.answer,
         "steps_text": [s.text for s in output.steps],
         "answer": output.answer,
-        "correct": int(output.answer == sample.answer),
+        "correct": int(
+            _JUDGE(sample.question, output.answer, sample.answer).label
+            in ("correct", "partial")
+        ),
         "signal_a": float(a),
         "signal_a_flip": cf["flip_rate"],
         "signal_a_js": cf["js_divergence"],

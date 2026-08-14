@@ -327,13 +327,23 @@ class HFVLM:
         """
         import re
         m = re.search(r"<answer>(.*?)</answer>", text, re.I | re.S)
+        ans_match = re.search(r"(?:final\s+)?\**answer\**\s*:|the\s+answer\s+is\s*:", text, re.I)
+        
         if m:
             span = m.group(1)
-        elif "Answer:" in text:
-            span = text.split("Answer:")[-1]
+        elif ans_match:
+            span = text[ans_match.end():]
         else:  # strip a think block, take the tail
             span = re.sub(r"<think>.*?</think>", "", text, flags=re.I | re.S)
+            
         ans = span.strip().split("\n")[0].strip(" .:'\"*").lower()
+        
+        if "reasoning sentences" in ans:
+            clean_text = re.sub(r"<think>.*?</think>", "", text, flags=re.I | re.S).strip()
+            lines = [l.strip() for l in clean_text.split("\n") if l.strip()]
+            if lines:
+                ans = lines[-1].strip(" .:'\"*").lower()
+
         if sample.answer_choices:
             lc = [c.lower() for c in sample.answer_choices]
             for c, cl in zip(sample.answer_choices, lc):        # in the answer span
@@ -343,4 +353,12 @@ class HFVLM:
                 if re.search(r"\b" + re.escape(cl) + r"\b", text.lower()):
                     return c
             return sample.answer_choices[0]
+            
+        if not ans or "reasoning sentences" in ans or len(ans) > 60:
+            clean_text = re.sub(r"<think>.*?</think>", "", text, flags=re.I | re.S).strip()
+            clauses = re.split(r"[,.;!?\n]+", clean_text)
+            valid_clauses = [c.strip() for c in clauses if len(c.strip()) > 3]
+            if valid_clauses:
+                ans = valid_clauses[-1].strip(" .:'\"*").lower()
+                
         return ans or text.strip().lower()[:40]

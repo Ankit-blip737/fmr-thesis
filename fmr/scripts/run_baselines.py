@@ -11,7 +11,10 @@ from collections import defaultdict
 
 from _common import load_all_configs, resolve_dataset_and_splits, resolve_vlm
 
+from fmr.eval.judge import HeuristicJudge
 from fmr.utils import save_json
+
+_JUDGE = HeuristicJudge()
 
 
 def run(models: list[str], split: str, out_dir: str, config_dir: str | None = None) -> dict:
@@ -26,7 +29,8 @@ def run(models: list[str], split: str, out_dir: str, config_dir: str | None = No
         correct = []
         for s in eval_set:
             out = vlm.generate(s, variant="original", temperature=0.0)
-            hit = int(out.answer == s.answer)
+            verdict = _JUDGE(s.question, out.answer, s.answer)
+            hit = int(verdict.label in ("correct", "partial"))
             correct.append(hit)
             per_mod[s.modality].append(hit)
         results["models"][key] = {

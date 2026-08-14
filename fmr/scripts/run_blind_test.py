@@ -19,6 +19,10 @@ from collections import defaultdict
 import numpy as np
 from _common import load_all_configs, resolve_dataset_and_splits, resolve_vlm
 
+from fmr.eval.judge import HeuristicJudge
+
+_JUDGE = HeuristicJudge()
+
 from fmr.faithfulness import attention_signal
 from fmr.utils import save_json
 
@@ -141,7 +145,10 @@ def run(split: str, out_dir: str, config_dir: str | None = None) -> dict:
             hits = []
             for s in eval_set:
                 out = vlm.generate(s, variant=v, temperature=0.0)
-                hits.append(int(out.answer == s.answer))
+                hits.append(int(
+                    _JUDGE(s.question, out.answer, s.answer).label
+                    in ("correct", "partial")
+                ))
                 if v == "original":
                     outputs_orig.append((s, out))
             acc[v] = float(np.mean(hits))
