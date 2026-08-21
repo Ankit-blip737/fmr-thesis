@@ -42,7 +42,7 @@ def main():
     parser.add_argument("--image-root", help="Path to SLAKE imgs directory (optional).")
     parser.add_argument("--output", default="slake_bboxes.json", help="Output JSON path.")
     
-    args = parser.parse_argument()
+    args = parser.parse_args()
     
     mask_root = Path(args.mask_root)
     output_dict = {}
