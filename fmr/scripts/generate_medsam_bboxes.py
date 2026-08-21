@@ -75,7 +75,7 @@ def main():
     parser.add_argument("--no-sam", action="store_true", help="Disable SAM and use fallback thresholding.")
     parser.add_argument("--fallback-threshold", action="store_true", help="Use fallback thresholding if SAM fails.")
     
-    args = parser.parse_argument()
+    args = parser.parse_args()
     
     # Load dataset
     if args.dataset == "vqa_rad":
