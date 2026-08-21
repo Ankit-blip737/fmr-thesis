@@ -68,7 +68,7 @@ def otsu_thresholding_bbox(image):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate pseudo bounding boxes for medical VQA datasets.")
-    parser.add_argument("--dataset", choices=["vqa_rad", "pathvqa"], required=True, help="Dataset to process.")
+    parser.add_argument("--dataset", choices=["vqa_rad", "pathvqa", "slake"], required=True, help="Dataset to process.")
     parser.add_argument("--output", required=True, help="Output JSON path.")
     parser.add_argument("--model", default="facebook/sam-vit-base", help="SAM model checkpoint.")
     parser.add_argument("--max-samples", type=int, default=None, help="Limit number of samples.")
@@ -80,6 +80,8 @@ def main():
     # Load dataset
     if args.dataset == "vqa_rad":
         dataset_name = "flaviagiammarino/vqa-rad"
+    elif args.dataset == "slake":
+        dataset_name = "BoKelvin/SLAKE"
     else:
         dataset_name = "flaviagiammarino/path-vqa"
         
