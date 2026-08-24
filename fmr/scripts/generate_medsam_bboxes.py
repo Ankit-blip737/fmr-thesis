@@ -73,6 +73,7 @@ def main():
     parser.add_argument("--model", default="facebook/sam-vit-base", help="SAM model checkpoint.")
     parser.add_argument("--max-samples", type=int, default=None, help="Limit number of samples.")
     parser.add_argument("--no-sam", action="store_true", help="Disable SAM and use fallback thresholding.")
+    parser.add_argument("--image-root", default=None, help="Directory of images on disk (for datasets like SLAKE).")
     parser.add_argument("--fallback-threshold", action="store_true", help="Use fallback thresholding if SAM fails.")
     
     args = parser.parse_args()
@@ -109,9 +110,26 @@ def main():
     
     print(f"Processing {len(dataset)} images...")
     for idx, sample in enumerate(dataset):
-        if 'image' in sample:
+        image = None
+        if 'image' in sample and sample['image'] is not None:
             image = sample['image']
-        else:
+        elif 'img_name' in sample:
+            # Check image_root or current directory
+            candidates = []
+            if args.image_root:
+                candidates.append(Path(args.image_root) / sample['img_name'])
+                candidates.append(Path(args.image_root) / "imgs" / sample['img_name'])
+            candidates.append(Path("slake_imgs") / sample['img_name'])
+            candidates.append(Path("slake_imgs") / "imgs" / sample['img_name'])
+            for p in candidates:
+                if p.exists():
+                    try:
+                        image = Image.open(p).convert('RGB')
+                        break
+                    except Exception:
+                        pass
+        
+        if image is None:
             continue
             
         sample_id = f"{args.dataset}-test-{idx:06d}"
