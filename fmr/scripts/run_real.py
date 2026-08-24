@@ -76,23 +76,21 @@ def _write_configs(dataset: str, model_key: str, reasoning: str, non_reasoning: 
     return tmp
 
 
-def _load_existing_status(out: str) -> dict:
+def _load_existing_status(out: str, current_max_samples: int | None = None) -> dict:
     """Load run_status.json if it exists; otherwise infer from output files."""
     p = Path(out) / "run_status.json"
     if p.exists():
         try:
-            return json.loads(p.read_text()).get("status", {})
+            data = json.loads(p.read_text())
+            saved_max = data.get("max_samples")
+            # If max_samples changed (e.g. was 80, now 5000), invalidate stale status
+            if current_max_samples is not None and saved_max is not None and saved_max != current_max_samples:
+                print(f"[run_real] Existing status has max_samples={saved_max}, but current run is max_samples={current_max_samples}. Starting fresh for new sample count.")
+                return {}
+            return data.get("status", {})
         except Exception:
             pass
-    # Infer from files if status JSON is missing (e.g. crashed mid-run)
-    status = {}
-    if (Path(out) / "baselines.json").exists():
-        status["baselines"] = "ok"
-    if (Path(out) / "blind_test.json").exists():
-        status["blind_test"] = "ok"
-    if (Path(out) / "fmr_results.json").exists():
-        status["fmr"] = "ok"
-    return status
+    return {}
 
 
 def main() -> None:
@@ -118,6 +116,8 @@ def main() -> None:
                     help="skip entire dataset if all stages already ok in run_status.json")
     ap.add_argument("--resume", action="store_true",
                     help="skip individual stages already marked ok in run_status.json")
+    ap.add_argument("--stages", nargs="+", default=["baselines", "blind_test", "fmr"],
+                    help="subset of stages to run (e.g. --stages fmr)")
     ap.add_argument("--bboxes", default=None,
                     help="JSON file with bounding boxes for Signal B IoU")
     args = ap.parse_args()
@@ -126,7 +126,7 @@ def main() -> None:
     Path(out).mkdir(parents=True, exist_ok=True)
 
     # --- Resume / skip logic ------------------------------------------------
-    existing_status = _load_existing_status(out)
+    existing_status = _load_existing_status(out, args.max_samples)
     all_stages = ["baselines", "blind_test", "fmr"]
 
     if args.skip_if_done:
@@ -173,7 +173,7 @@ def main() -> None:
     # (grounding-drift replication verdict) survives even if the full FMR stage
     # dies. Stages are ordered cheapest -> heaviest for exactly this reason.
     status: dict[str, str] = dict(existing_status)  # carry forward existing ok stages
-    stages = [
+    all_possible_stages = [
         ("baselines", lambda: run_baselines.run(
             [args.reasoning, args.non_reasoning], args.split, out,
             config_dir=str(cfg_dir))),
@@ -183,6 +183,7 @@ def main() -> None:
             out, alpha=args.alpha, delta=args.delta, post_correction=False,
             config_dir=str(cfg_dir))),
     ]
+    stages = [(name, fn) for name, fn in all_possible_stages if name in args.stages]
     for name, fn in stages:
         # --resume: skip stages already marked ok in the previous run
         if args.resume and status.get(name) == "ok":

@@ -37,8 +37,16 @@ def push(paths: str | list[str], message: str, branch: str = "master") -> None:
 
     if token:
         remote = f"https://x-access-token:{token}@{REPO}"
+        try:
+            _run(["git", "pull", "--rebase", remote, branch])
+        except Exception:
+            pass
         _run(["git", "push", remote, f"HEAD:{branch}"])
     else:
+        try:
+            _run(["git", "pull", "--rebase", "origin", branch])
+        except Exception:
+            pass
         _run(["git", "push", "origin", f"HEAD:{branch}"])
     print(f"[push] pushed to {branch}: {message}")
 
