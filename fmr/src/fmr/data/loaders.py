@@ -147,10 +147,26 @@ def _load_hf(name: str, config: dict[str, Any]) -> list[Sample]:
 
         # Image: inline PIL where present; else resolve img_name against image_root.
         img = row.get("image")
-        if img is None and name == "slake" and image_root and row.get("img_name"):
-            p1 = Path(image_root) / row["img_name"]
-            p2 = Path(image_root) / "imgs" / row["img_name"]
-            img = str(p2 if (not p1.exists() and p2.exists()) else p1)
+        if img is None and name == "slake" and row.get("img_name"):
+            img_rel = row["img_name"]
+            candidates = [
+                Path(image_root) / img_rel if image_root else None,
+                Path(image_root) / "imgs" / img_rel if image_root else None,
+                Path("slake_imgs") / img_rel,
+                Path("slake_imgs") / "imgs" / img_rel,
+                Path("/kaggle/working/fmr-thesis/slake_imgs") / img_rel,
+                Path("/kaggle/working/fmr-thesis/slake_imgs/imgs") / img_rel,
+                Path("/kaggle/working/slake_imgs") / img_rel,
+                Path("/kaggle/working/slake_imgs/imgs") / img_rel,
+            ]
+            found = False
+            for c in candidates:
+                if c and c.exists():
+                    img = str(c)
+                    found = True
+                    break
+            if not found and image_root:
+                img = str(Path(image_root) / img_rel)
 
         # Closed (yes/no or explicitly CLOSED) -> give binary choices for clean metrics.
         answer_type = str(row.get("answer_type", "")).upper()
