@@ -148,7 +148,9 @@ def _load_hf(name: str, config: dict[str, Any]) -> list[Sample]:
         # Image: inline PIL where present; else resolve img_name against image_root.
         img = row.get("image")
         if img is None and name == "slake" and image_root and row.get("img_name"):
-            img = str(Path(image_root) / row["img_name"])
+            p1 = Path(image_root) / row["img_name"]
+            p2 = Path(image_root) / "imgs" / row["img_name"]
+            img = str(p2 if (not p1.exists() and p2.exists()) else p1)
 
         # Closed (yes/no or explicitly CLOSED) -> give binary choices for clean metrics.
         answer_type = str(row.get("answer_type", "")).upper()
