@@ -1,26 +1,26 @@
 {
   "dataset": "slake",
   "split": "test",
-  "n": 75,
+  "n": 250,
   "models": {
     "medvlm_r1": {
       "name": "JZPeterPan/MedVLM-R1",
       "is_reasoning": true,
-      "accuracy": 0.26666666666666666,
+      "accuracy": 0.44,
       "per_modality": {
-        "ct": 0.23255813953488372,
-        "mri": 0.625,
-        "xray": 0.20833333333333334
+        "ct": 0.5670103092783505,
+        "mri": 0.41509433962264153,
+        "xray": 0.33
       }
     },
     "qwen25_vl_3b": {
       "name": "Qwen/Qwen2.5-VL-3B-Instruct",
       "is_reasoning": false,
-      "accuracy": 0.6266666666666667,
+      "accuracy": 0.604,
       "per_modality": {
-        "ct": 0.627906976744186,
-        "mri": 0.5,
-        "xray": 0.6666666666666666
+        "ct": 0.6494845360824743,
+        "mri": 0.5283018867924528,
+        "xray": 0.6
       }
     }
   }
