@@ -63,8 +63,12 @@ def run(out_dir: str, alpha: float, delta: float, post_correction: bool,
     def _labels(records: list[dict]) -> list[int] | None:
         if records and records[0]["grounded_latent"] is not None:
             return [int(r["grounded_latent"]) for r in records]
-        if records and records[0]["weak_labels"] is not None:
-            return [int(np.mean(r["weak_labels"]) >= 0.5) for r in records]
+        # Check if ANY record has weak_labels (not just the first one)
+        has_any = any(r["weak_labels"] is not None for r in records)
+        if has_any:
+            return [int(np.mean(r["weak_labels"]) >= 0.5)
+                    if r["weak_labels"] is not None else 0
+                    for r in records]
         return None
 
     validation: dict = {"label_source": "grounded_latent" if test_records[0]["grounded_latent"] is not None
