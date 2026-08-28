@@ -15,5 +15,3 @@ fmr/data_cache/
 # Large / real-model outputs land here from Colab and are committed selectively
 fmr/outputs/real/**/*.pt
 fmr/outputs/real/**/*.bin
-
-fmr/results/
