@@ -1,0 +1,17 @@
+{
+  "status": "ok",
+  "n_distill": 50,
+  "training": "ok",
+  "frozen": {
+    "tag": "frozen-base",
+    "acc": 0.68,
+    "fs_mean": 0.29908709714573267
+  },
+  "lora": {
+    "tag": "faithfulness-lora",
+    "acc": 0.66,
+    "fs_mean": 0.2806337527593923
+  },
+  "n_eval": 50,
+  "verdict": "frozen retained (honest negative)"
+}
